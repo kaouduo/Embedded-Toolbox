@@ -1,0 +1,116 @@
+export const messages = {
+  en: {
+    app: {
+      name: "Embedded Toolbox",
+      comingSoon: "Coming Soon",
+      appInfoError: "Failed to load app info: {message}",
+    },
+    navigation: {
+      home: "Home",
+      protocol: "Protocol",
+      communication: "Communication",
+      converter: "Converter",
+      calculator: "Calculator",
+      image: "Image",
+      color: "Color",
+      device: "Device",
+    },
+    tools: {
+      home: "Home",
+      modbus: "Modbus",
+      serial: "Serial Port",
+      tcpUdp: "TCP / UDP",
+      numberConverter: "Number Converter",
+      ieee754: "IEEE754 Float",
+      endian: "Endian",
+      crc: "CRC",
+      canBitTiming: "CAN Bit Timing",
+      timer: "Timer",
+      imageConverter: "Image Converter",
+      colorPalette: "Color Palette",
+      deviceManager: "Device Manager",
+    },
+    descriptions: {
+      modbus:
+        "Modbus RTU / TCP debugging tools: frame builder, register polling, and traffic analysis.",
+      serial: "Serial port terminal with baud-rate configuration, hex view, and data logging.",
+      tcpUdp: "TCP client / server and UDP socket debugging with send/receive tracing.",
+      numberConverter:
+        "HEX / DEC / BIN / ASCII / byte-array conversion between common embedded data formats.",
+      ieee754:
+        "Convert between floating-point values and their IEEE754 binary / hexadecimal representation.",
+      endian: "Byte-order conversion: big-endian, little-endian, and word-swap utilities.",
+      crc: "CRC8 / CRC16 / CRC32 checksum calculation with configurable polynomial and initial value.",
+      canBitTiming:
+        "Calculate CAN bus bit-timing register values from clock frequency and target baud rate.",
+      timer:
+        "MCU timer prescaler / period calculation (e.g. STM32 TIM) from target frequency or interval.",
+      imageConverter: "Convert images to RGB565 / RGB888 / 1-bit bitmap C arrays for MCU displays.",
+      colorPalette: "Color palette management with HEX / RGB / HSV conversion, import and export.",
+      deviceManager:
+        "Debug probe and device management (CMSIS-DAP / ST-Link / J-Link / probe-rs) with firmware flashing.",
+    },
+    toolbar: {
+      switchToLight: "Switch to light theme",
+      switchToDark: "Switch to dark theme",
+      language: "Language",
+      english: "English",
+      chinese: "简体中文",
+    },
+  },
+  "zh-CN": {
+    app: {
+      name: "嵌入式工具箱",
+      comingSoon: "即将推出",
+      appInfoError: "应用信息加载失败：{message}",
+    },
+    navigation: {
+      home: "首页",
+      protocol: "协议",
+      communication: "通信",
+      converter: "数据转换",
+      calculator: "计算器",
+      image: "图像",
+      color: "颜色",
+      device: "设备",
+    },
+    tools: {
+      home: "首页",
+      modbus: "Modbus",
+      serial: "串口",
+      tcpUdp: "TCP / UDP",
+      numberConverter: "进制转换",
+      ieee754: "IEEE754 浮点数",
+      endian: "字节序",
+      crc: "CRC",
+      canBitTiming: "CAN 位时序",
+      timer: "定时器",
+      imageConverter: "图像转换",
+      colorPalette: "色卡管理",
+      deviceManager: "设备管理器",
+    },
+    descriptions: {
+      modbus: "用于帧构建、寄存器轮询和通信流量分析的 Modbus RTU / TCP 调试工具。",
+      serial: "支持波特率配置、十六进制视图和数据日志的串口终端。",
+      tcpUdp: "支持收发跟踪的 TCP 客户端、TCP 服务端和 UDP Socket 调试工具。",
+      numberConverter: "常用嵌入式数据格式之间的 HEX、DEC、BIN、ASCII 和字节数组转换。",
+      ieee754: "浮点数与 IEEE754 二进制、十六进制表示之间的转换。",
+      endian: "大端、小端及字交换等字节序转换工具。",
+      crc: "支持配置多项式与初始值的 CRC8、CRC16 和 CRC32 校验计算。",
+      canBitTiming: "根据时钟频率和目标波特率计算 CAN 总线位时序寄存器参数。",
+      timer: "根据目标频率或时间间隔计算 MCU 定时器预分频和周期参数（如 STM32 TIM）。",
+      imageConverter: "将图像转换为适用于 MCU 显示屏的 RGB565、RGB888 或单色位图 C 数组。",
+      colorPalette: "支持 HEX、RGB、HSV 转换及导入导出的色卡管理工具。",
+      deviceManager: "用于 CMSIS-DAP、ST-Link、J-Link、probe-rs 和固件烧录的调试器与设备管理工具。",
+    },
+    toolbar: {
+      switchToLight: "切换到浅色主题",
+      switchToDark: "切换到深色主题",
+      language: "语言",
+      english: "English",
+      chinese: "简体中文",
+    },
+  },
+} as const;
+
+export type AppLocale = keyof typeof messages;

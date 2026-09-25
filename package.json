@@ -1,0 +1,46 @@
+{
+  "name": "embedded-toolbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "tauri": "tauri",
+    "build": "run-p type-check \"build-only {@}\" --",
+    "preview": "vp preview",
+    "build-only": "vp build",
+    "type-check": "vue-tsc --build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "@vicons/ionicons5": "^0.13.0",
+    "naive-ui": "^2.45.3",
+    "pinia": "^4.0.3",
+    "vue": "^3.5.42",
+    "vue-i18n": "^11.4.12",
+    "vue-router": "^5.3.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5",
+    "@tsconfig/node24": "^24.0.5",
+    "@types/node": "^24.13.4",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/tsconfig": "^0.9.1",
+    "npm-run-all2": "^9.0.3",
+    "typescript": "~6.0.0",
+    "vite": "catalog:",
+    "vite-plugin-vue-devtools": "^8.2.1",
+    "vite-plus": "catalog:",
+    "vue-tsc": "^3.3.11"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.6.0",
+      "onFail": "download"
+    }
+  },
+  "engines": {
+    "node": "^22.18.0 || >=24.12.0"
+  }
+}

@@ -1,0 +1,72 @@
+/*
+ * Embedded Toolbox — global styles
+ * Theme tokens are provided by Naive UI (n-config-provider).
+ * The variables below cover app-layout concerns only
+ * (sidebar, toolbar, content surfaces) and switch with html.dark.
+ */
+
+:root {
+  --et-sidebar-width: 232px;
+  --et-sidebar-collapsed-width: 56px;
+  --et-toolbar-height: 42px;
+
+  --et-bg-base: #f5f6f7;
+  --et-bg-surface: #ffffff;
+  --et-border-color: #e0e2e6;
+}
+
+html.dark {
+  --et-bg-base: #101014;
+  --et-bg-surface: #18181c;
+  --et-border-color: #2c2c32;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--et-bg-base);
+  font-family:
+    "Segoe UI",
+    "Microsoft YaHei",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Compact scrollbars, closer to desktop tool conventions */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.35);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.55);
+  background-clip: content-box;
+  border: 2px solid transparent;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
