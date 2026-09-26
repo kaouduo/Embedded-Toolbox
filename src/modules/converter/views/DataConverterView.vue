@@ -67,14 +67,14 @@ const normalizedHex = computed(() => {
   margin: 0;
   font-size: 12px;
   line-height: 1.6;
-  opacity: 0.68;
+  color: var(--et-text-secondary);
 }
 
 .normalized-value {
   min-height: 18px;
   margin: 8px 0 0;
   font-size: 11px;
-  opacity: 0.7;
+  color: var(--et-text-secondary);
 }
 
 .normalized-value code {
@@ -99,7 +99,7 @@ const normalizedHex = computed(() => {
   border-left: 2px solid var(--et-border-color);
   font-size: 11px;
   line-height: 1.6;
-  opacity: 0.65;
+  color: var(--et-text-secondary);
 }
 
 @media (max-width: 720px) {

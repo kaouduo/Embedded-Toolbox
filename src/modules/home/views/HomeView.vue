@@ -97,12 +97,11 @@ function openTool(routeName: string): void {
 .app-info {
   margin: 0;
   font-size: 12px;
-  opacity: 0.65;
+  color: var(--et-text-secondary);
 }
 
 .app-info--error {
-  opacity: 1;
-  color: #d03050;
+  color: var(--et-danger);
 }
 
 .tool-group {
@@ -113,7 +112,7 @@ function openTool(routeName: string): void {
   margin: 0 0 8px;
   font-size: 13px;
   font-weight: 600;
-  opacity: 0.75;
+  color: var(--et-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -136,6 +135,8 @@ function openTool(routeName: string): void {
 }
 
 .tool-item:hover {
-  border-color: #18a058;
+  color: var(--et-text-primary);
+  background-color: var(--et-bg-hover);
+  border-color: var(--et-accent);
 }
 </style>

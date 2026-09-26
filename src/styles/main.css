@@ -1,8 +1,9 @@
 /*
  * Embedded Toolbox — global styles
- * Theme tokens are provided by Naive UI (n-config-provider).
- * The variables below cover app-layout concerns only
- * (sidebar, toolbar, content surfaces) and switch with html.dark.
+ * Application color tokens. Naive UI consumes the same variables through
+ * App.vue so native HTML and library components always use one palette.
+ * The dark palette follows the neutral, high-contrast style common in
+ * desktop EDA/IDE tools instead of relying on browser-default text colors.
  */
 
 :root {
@@ -10,15 +11,43 @@
   --et-sidebar-collapsed-width: 56px;
   --et-toolbar-height: 42px;
 
-  --et-bg-base: #f5f6f7;
+  color-scheme: light;
+  --et-bg-base: #f1f3f5;
   --et-bg-surface: #ffffff;
-  --et-border-color: #e0e2e6;
+  --et-bg-elevated: #f7f8fa;
+  --et-bg-hover: #e7ebef;
+  --et-border-color: #cbd0d6;
+  --et-text-primary: #20242a;
+  --et-text-secondary: #535b66;
+  --et-text-muted: #737d89;
+  --et-text-disabled: #9aa1aa;
+  --et-accent: #1261a0;
+  --et-accent-hover: #0b73c9;
+  --et-accent-pressed: #0b4f82;
+  --et-danger: #c6283d;
+  --et-code-bg: #e9edf1;
+  --et-scrollbar: rgba(82, 91, 102, 0.38);
+  --et-scrollbar-hover: rgba(82, 91, 102, 0.62);
 }
 
 html.dark {
-  --et-bg-base: #101014;
-  --et-bg-surface: #18181c;
-  --et-border-color: #2c2c32;
+  color-scheme: dark;
+  --et-bg-base: #1e1f22;
+  --et-bg-surface: #25262a;
+  --et-bg-elevated: #2b2d31;
+  --et-bg-hover: #34373c;
+  --et-border-color: #454950;
+  --et-text-primary: #e6e8eb;
+  --et-text-secondary: #b9bec7;
+  --et-text-muted: #929aa6;
+  --et-text-disabled: #69717d;
+  --et-accent: #4da3e5;
+  --et-accent-hover: #72b8eb;
+  --et-accent-pressed: #3589c8;
+  --et-danger: #ff6b7a;
+  --et-code-bg: #18191c;
+  --et-scrollbar: rgba(178, 185, 195, 0.38);
+  --et-scrollbar-hover: rgba(178, 185, 195, 0.62);
 }
 
 * {
@@ -35,6 +64,7 @@ body,
 
 body {
   background-color: var(--et-bg-base);
+  color: var(--et-text-primary);
   font-family:
     "Segoe UI",
     "Microsoft YaHei",
@@ -55,14 +85,14 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.35);
+  background: var(--et-scrollbar);
   border-radius: 5px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.55);
+  background: var(--et-scrollbar-hover);
   background-clip: content-box;
   border: 2px solid transparent;
 }
