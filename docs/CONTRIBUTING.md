@@ -86,7 +86,7 @@ git diff --cached
 
 ```powershell
 vp check
-vp test --run --passWithNoTests
+vp test --run
 vp build
 cargo check --manifest-path src-tauri/Cargo.toml
 vp run tauri dev

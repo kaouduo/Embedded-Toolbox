@@ -37,9 +37,7 @@ export const navigation: NavItem[] = [
     labelKey: "navigation.converter",
     icon: "converter",
     children: [
-      { key: "converter-number", labelKey: "tools.numberConverter", routeName: "converter-number" },
-      { key: "converter-ieee754", labelKey: "tools.ieee754", routeName: "converter-ieee754" },
-      { key: "converter-endian", labelKey: "tools.endian", routeName: "converter-endian" },
+      { key: "converter-data", labelKey: "tools.dataConverter", routeName: "converter-data" },
     ],
   },
   {

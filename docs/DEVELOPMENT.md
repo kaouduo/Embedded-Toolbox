@@ -150,12 +150,12 @@ vp preview
 
 ```powershell
 vp check
-vp test --run --passWithNoTests
+vp test --run
 vp build
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
-当项目已有测试后，不应使用 `--passWithNoTests` 掩盖测试文件丢失；CI 应直接运行 `vp test --run`。
+测试文件是发布检查的一部分，不应使用 `--passWithNoTests` 掩盖测试文件丢失。
 
 ## 9. IDE 建议
 
