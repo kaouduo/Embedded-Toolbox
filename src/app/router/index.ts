@@ -31,22 +31,22 @@ const routes: RouteRecordRaw[] = [
     meta: { titleKey: "tools.tcpUdp" },
   },
   {
+    path: "/converter/data",
+    name: "converter-data",
+    component: () => import("@/modules/converter/views/DataConverterView.vue"),
+    meta: { titleKey: "tools.dataConverter" },
+  },
+  {
     path: "/converter/number",
-    name: "converter-number",
-    component: () => import("@/modules/converter/views/NumberConverterView.vue"),
-    meta: { titleKey: "tools.numberConverter" },
+    redirect: "/converter/data",
   },
   {
     path: "/converter/ieee754",
-    name: "converter-ieee754",
-    component: () => import("@/modules/converter/views/Ieee754View.vue"),
-    meta: { titleKey: "tools.ieee754" },
+    redirect: "/converter/data",
   },
   {
     path: "/converter/endian",
-    name: "converter-endian",
-    component: () => import("@/modules/converter/views/EndianView.vue"),
-    meta: { titleKey: "tools.endian" },
+    redirect: "/converter/data",
   },
   {
     path: "/calculator/crc",

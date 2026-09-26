@@ -101,6 +101,8 @@ HomeView.vue
 - 优先添加单元测试。
 - 不依赖 Pinia、Vue Router 或 Naive UI。
 
+当前 `modules/converter/core` 是纯计算模块的参考实现：数据类型定义、十六进制规范化、IEEE754 编解码和字节/字序变换均不依赖 UI，也将供后续 Modbus payload parser 复用。
+
 ### Service
 
 - `AppService` 描述前端用例，例如获取应用信息、打开设备或发起通信。

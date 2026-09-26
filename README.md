@@ -13,7 +13,8 @@ Embedded Toolbox 是面向嵌入式工程师的跨平台桌面工具箱。项目
 - 统一的 Vue → Service → NativeService → Tauri → Rust 调用链
 - Rust `domain / services / commands` 基础分层
 - `get_app_info` 原生通信示例
-- Modbus、Serial、TCP/UDP、转换器、计算器、图像、色卡和设备管理占位页面
+- 数据转换工具：8 种整数/浮点类型、十进制/十六进制和 4 种字节/字序排列
+- Modbus、Serial、TCP/UDP、计算器、图像、色卡和设备管理占位页面
 - Vite+ 统一的开发、检查、测试和构建能力
 
 ## 技术栈
@@ -102,4 +103,4 @@ Vue 页面禁止直接导入 `@tauri-apps/api` 或调用 `invoke()`。完整规�
 
 ## 下一阶段
 
-下一阶段建议先实现一组纯 TypeScript 数据转换工具（进制转换、IEEE754、Endian）及其单元测试，用来验证 module core 的组织方式和 Vite+ 测试流程；暂不同时引入串口、Modbus 或设备调试等 Native 复杂能力。
+下一阶段将设计 Modbus RTU/TCP 报文调试与解析功能。报文解析规则会复用数据转换模块的类型 codec，并允许每条规则分别选择字节序和 16 位寄存器字序；串口与 TCP 连接能力仍通过统一 NativeService 接入。

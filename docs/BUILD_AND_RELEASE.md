@@ -22,12 +22,12 @@ vp install
 
 ```powershell
 vp check
-vp test --run --passWithNoTests
+vp test --run
 vp build
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
-当前 V0.1 尚无测试文件，因此临时允许 `--passWithNoTests`。加入第一批业务测试后，发布检查应改为：
+项目已包含数据转换 codec 测试，发布检查必须执行：
 
 ```powershell
 vp test --run
