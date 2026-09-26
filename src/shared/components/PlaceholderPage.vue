@@ -32,7 +32,7 @@ const { t } = useI18n();
   margin: 0 0 16px;
   font-size: 13px;
   line-height: 1.6;
-  opacity: 0.75;
+  color: var(--et-text-secondary);
 }
 
 .placeholder-badge {
@@ -41,6 +41,7 @@ const { t } = useI18n();
   font-size: 12px;
   border: 1px solid var(--et-border-color);
   border-radius: 3px;
-  opacity: 0.65;
+  color: var(--et-text-muted);
+  background: var(--et-bg-elevated);
 }
 </style>

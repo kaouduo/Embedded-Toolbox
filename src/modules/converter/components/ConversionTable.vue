@@ -157,7 +157,7 @@ async function copyValue(value: string): Promise<void> {
   margin-top: 2px;
   font-size: 10px;
   font-weight: 400;
-  opacity: 0.55;
+  color: var(--et-text-muted);
 }
 
 .result-cell {
@@ -178,7 +178,7 @@ async function copyValue(value: string): Promise<void> {
 
 .copy-button {
   flex-shrink: 0;
-  opacity: 0.6;
+  color: var(--et-accent);
 }
 
 .copy-button:hover {
@@ -186,7 +186,7 @@ async function copyValue(value: string): Promise<void> {
 }
 
 .invalid-result {
-  opacity: 0.35;
+  color: var(--et-text-disabled);
   cursor: help;
 }
 
@@ -194,6 +194,6 @@ async function copyValue(value: string): Promise<void> {
   padding: 7px 10px;
   border-top: 1px solid var(--et-border-color);
   font-size: 11px;
-  opacity: 0.62;
+  color: var(--et-text-secondary);
 }
 </style>
