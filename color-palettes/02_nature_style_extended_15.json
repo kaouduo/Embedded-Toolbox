@@ -1,0 +1,69 @@
+{
+  "format": "color-palette-manager",
+  "version": 3,
+  "encoding": "UTF-8",
+  "name": "Nature-style Extended 15",
+  "description": "NPG 10 colors plus 5 darker extension colors for figures with 15 categories.",
+  "palette": [
+    {
+      "name": "I0",
+      "color": "#E64B35"
+    },
+    {
+      "name": "I1",
+      "color": "#4DBBD5"
+    },
+    {
+      "name": "I2",
+      "color": "#00A087"
+    },
+    {
+      "name": "I3",
+      "color": "#3C5488"
+    },
+    {
+      "name": "I4",
+      "color": "#F39B7F"
+    },
+    {
+      "name": "I5",
+      "color": "#8491B4"
+    },
+    {
+      "name": "I6",
+      "color": "#91D1C2"
+    },
+    {
+      "name": "I7",
+      "color": "#DC0000"
+    },
+    {
+      "name": "I8",
+      "color": "#7E6148"
+    },
+    {
+      "name": "I9",
+      "color": "#B09C85"
+    },
+    {
+      "name": "I10",
+      "color": "#393B79"
+    },
+    {
+      "name": "I11",
+      "color": "#637939"
+    },
+    {
+      "name": "I12",
+      "color": "#8C6D31"
+    },
+    {
+      "name": "I13",
+      "color": "#843C39"
+    },
+    {
+      "name": "I14",
+      "color": "#7B4173"
+    }
+  ]
+}

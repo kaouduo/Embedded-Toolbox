@@ -101,7 +101,7 @@ HomeView.vue
 - 优先添加单元测试。
 - 不依赖 Pinia、Vue Router 或 Naive UI。
 
-当前 `modules/converter/core` 是纯计算模块的参考实现：数据类型定义、十六进制规范化、IEEE754 编解码和字节/字序变换均不依赖 UI，也将供后续 Modbus payload parser 复用。
+当前 `modules/converter/core` 是纯计算模块的参考实现：数据类型定义、十六进制规范化、IEEE754 编解码和字节/字序变换均不依赖 UI，并供 Modbus 报文解析复用。
 
 ### Service
 
@@ -171,6 +171,7 @@ interface NativeError {
 - `src/styles/main.css` 中的 CSS Variables 管理应用壳层颜色和尺寸。
 - 禁止在大量页面中散落硬编码背景色、边框色。
 - 后续自定义主题或工程色卡应扩展 token，不替换现有边界。
+- 色卡管理模块保存的是独立的配色资料，不会自动修改应用主题；其格式和持久化规则见 [色卡管理与 JSON 格式](./COLOR_PALETTES.md)。
 
 ## 10. 新增功能检查表
 

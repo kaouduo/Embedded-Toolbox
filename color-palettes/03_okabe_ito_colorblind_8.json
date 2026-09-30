@@ -1,0 +1,41 @@
+{
+  "format": "color-palette-manager",
+  "version": 3,
+  "encoding": "UTF-8",
+  "name": "Okabe-Ito Colorblind-safe 8",
+  "description": "High-contrast palette designed for common color-vision deficiencies.",
+  "palette": [
+    {
+      "name": "Black",
+      "color": "#000000"
+    },
+    {
+      "name": "Orange",
+      "color": "#E69F00"
+    },
+    {
+      "name": "Sky Blue",
+      "color": "#56B4E9"
+    },
+    {
+      "name": "Bluish Green",
+      "color": "#009E73"
+    },
+    {
+      "name": "Yellow",
+      "color": "#F0E442"
+    },
+    {
+      "name": "Blue",
+      "color": "#0072B2"
+    },
+    {
+      "name": "Vermilion",
+      "color": "#D55E00"
+    },
+    {
+      "name": "Reddish Purple",
+      "color": "#CC79A7"
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 Embedded Toolbox 是面向嵌入式工程师的跨平台桌面工具箱。项目基于 Vue 3、TypeScript、Vite+、Tauri 2 和 Rust，目标是在一个结构清晰、可长期维护的应用中逐步提供协议调试、通信、数据转换、计算、图像、色卡和设备调试工具。
 
-当前版本为 **V0.1**。此阶段重点是工程基础设施和扩展边界，不包含完整的 Modbus、串口、CAN、调试器或固件烧录实现。
+项目仍处于早期开发阶段。数据转换、Modbus 报文工具和色卡管理已经可用；其他工具会逐步实现。
 
 ## 当前能力
 
@@ -14,6 +14,7 @@ Embedded Toolbox 是面向嵌入式工程师的跨平台桌面工具箱。项目
 - Rust `domain / services / commands` 基础分层
 - `get_app_info` 原生通信示例
 - 数据转换工具：8 种整数/浮点类型、十进制/十六进制和 4 种字节/字序排列
+- Modbus RTU / TCP / ASCII 报文构建、解析、校验和调试
 - 色卡管理：创建和编辑任意数量的色板与颜色，导入导出 JSON 色卡，并保存到本地
 - Serial、TCP/UDP、计算器、图像和设备管理占位页面
 - Vite+ 统一的开发、检查、测试和构建能力
@@ -94,6 +95,7 @@ Vue 页面禁止直接导入 `@tauri-apps/api` 或调用 `invoke()`。完整规�
 
 - [开发环境与运行](./docs/DEVELOPMENT.md)
 - [架构与扩展指南](./docs/ARCHITECTURE.md)
+- [色卡管理与 JSON 格式](./docs/COLOR_PALETTES.md)
 - [构建、打包与发布](./docs/BUILD_AND_RELEASE.md)
 - [协作与 Git 工作流](./docs/CONTRIBUTING.md)
 - [版本变更记录](./CHANGELOG.md)
@@ -102,6 +104,6 @@ Vue 页面禁止直接导入 `@tauri-apps/api` 或调用 `invoke()`。完整规�
 
 首次 V0.1 基线提交完成后，禁止直接在 `main` 上进行功能修改。每次修改必须从最新 `main` 创建独立分支，验证通过后再合并回 `main`。详细命令和分支命名约定见 [CONTRIBUTING.md](./docs/CONTRIBUTING.md)。
 
-## 下一阶段
+## 后续方向
 
-下一阶段将设计 Modbus RTU/TCP 报文调试与解析功能。报文解析规则会复用数据转换模块的类型 codec，并允许每条规则分别选择字节序和 16 位寄存器字序；串口与 TCP 连接能力仍通过统一 NativeService 接入。
+继续完善通信、计算、图像和设备工具。新增功能继续遵守模块边界与双语文案规则。

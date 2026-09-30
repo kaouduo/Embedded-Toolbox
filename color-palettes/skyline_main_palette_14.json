@@ -1,0 +1,65 @@
+{
+  "format": "color-palette-manager",
+  "version": 3,
+  "encoding": "UTF-8",
+  "name": "KiCad Skyline Main Palette 14",
+  "description": "The 14 colors from the top-level palette array in CloverGit/kicad-theme-skyline.",
+  "palette": [
+    {
+      "name": "Skyline 1",
+      "color": "#C83434"
+    },
+    {
+      "name": "Skyline 2",
+      "color": "#7FC87F"
+    },
+    {
+      "name": "Skyline 3",
+      "color": "#CE7D2C"
+    },
+    {
+      "name": "Skyline 4",
+      "color": "#4FCBCB"
+    },
+    {
+      "name": "Skyline 5",
+      "color": "#DB628B"
+    },
+    {
+      "name": "Skyline 6",
+      "color": "#A7A5C6"
+    },
+    {
+      "name": "Skyline 7",
+      "color": "#28CCD9"
+    },
+    {
+      "name": "Skyline 8",
+      "color": "#E8B2A7"
+    },
+    {
+      "name": "Skyline 9",
+      "color": "#F2EDA1"
+    },
+    {
+      "name": "Skyline 10",
+      "color": "#8DCB81"
+    },
+    {
+      "name": "Skyline 11",
+      "color": "#ED7C33"
+    },
+    {
+      "name": "Skyline 12",
+      "color": "#5BC3EB"
+    },
+    {
+      "name": "Skyline 13",
+      "color": "#F76F8E"
+    },
+    {
+      "name": "Skyline 14",
+      "color": "#4D7FC4"
+    }
+  ]
+}

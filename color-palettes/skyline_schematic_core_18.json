@@ -1,0 +1,81 @@
+{
+  "format": "color-palette-manager",
+  "version": 3,
+  "encoding": "UTF-8",
+  "name": "KiCad Skyline Schematic Core",
+  "description": "Selected core schematic colors from the Skyline KiCad theme.",
+  "palette": [
+    {
+      "name": "Background",
+      "color": "#1E2125"
+    },
+    {
+      "name": "Wire",
+      "color": "#64AABE"
+    },
+    {
+      "name": "Junction",
+      "color": "#64AABE"
+    },
+    {
+      "name": "Bus",
+      "color": "#268BD2"
+    },
+    {
+      "name": "Component Body",
+      "color": "#1A606E"
+    },
+    {
+      "name": "Component Outline",
+      "color": "#1B90B3"
+    },
+    {
+      "name": "Pin",
+      "color": "#1B90B3"
+    },
+    {
+      "name": "Pin Name",
+      "color": "#C8824B"
+    },
+    {
+      "name": "Pin Number",
+      "color": "#DD8200"
+    },
+    {
+      "name": "Reference",
+      "color": "#A0DC6E"
+    },
+    {
+      "name": "Value",
+      "color": "#A0DC6E"
+    },
+    {
+      "name": "Local Label",
+      "color": "#2AA198"
+    },
+    {
+      "name": "Global Label",
+      "color": "#4687A0"
+    },
+    {
+      "name": "Hier Label",
+      "color": "#1B90B3"
+    },
+    {
+      "name": "No Connect",
+      "color": "#18D4FF"
+    },
+    {
+      "name": "ERC Error",
+      "color": "#DC322F"
+    },
+    {
+      "name": "Grid",
+      "color": "#586E75"
+    },
+    {
+      "name": "Worksheet",
+      "color": "#EFBE48"
+    }
+  ]
+}
