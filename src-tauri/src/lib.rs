@@ -28,6 +28,8 @@ pub fn run() {
             commands::connection::open_connection,
             commands::connection::write_connection,
             commands::connection::close_connection,
+            commands::target_catalog::list_target_packs,
+            commands::target_catalog::import_target_pack,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
