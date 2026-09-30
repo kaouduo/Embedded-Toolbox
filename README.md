@@ -14,7 +14,8 @@ Embedded Toolbox 是面向嵌入式工程师的跨平台桌面工具箱。项目
 - Rust `domain / services / commands` 基础分层
 - `get_app_info` 原生通信示例
 - 数据转换工具：8 种整数/浮点类型、十进制/十六进制和 4 种字节/字序排列
-- Modbus、Serial、TCP/UDP、计算器、图像、色卡和设备管理占位页面
+- 色卡管理：创建和编辑任意数量的色板与颜色，导入导出 JSON 色卡，并保存到本地
+- Serial、TCP/UDP、计算器、图像和设备管理占位页面
 - Vite+ 统一的开发、检查、测试和构建能力
 
 ## 技术栈
