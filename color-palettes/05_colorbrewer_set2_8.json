@@ -1,0 +1,41 @@
+{
+  "format": "color-palette-manager",
+  "version": 3,
+  "encoding": "UTF-8",
+  "name": "ColorBrewer Set2 8",
+  "description": "Soft categorical palette for low-density figures and presentation-friendly plots.",
+  "palette": [
+    {
+      "name": "Teal",
+      "color": "#66C2A5"
+    },
+    {
+      "name": "Orange",
+      "color": "#FC8D62"
+    },
+    {
+      "name": "Blue",
+      "color": "#8DA0CB"
+    },
+    {
+      "name": "Pink",
+      "color": "#E78AC3"
+    },
+    {
+      "name": "Green",
+      "color": "#A6D854"
+    },
+    {
+      "name": "Yellow",
+      "color": "#FFD92F"
+    },
+    {
+      "name": "Brown",
+      "color": "#E5C494"
+    },
+    {
+      "name": "Gray",
+      "color": "#B3B3B3"
+    }
+  ]
+}

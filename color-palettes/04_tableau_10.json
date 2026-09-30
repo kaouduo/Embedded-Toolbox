@@ -1,0 +1,49 @@
+{
+  "format": "color-palette-manager",
+  "version": 3,
+  "encoding": "UTF-8",
+  "name": "Tableau 10",
+  "description": "Balanced categorical palette suitable for general scientific charts.",
+  "palette": [
+    {
+      "name": "Blue",
+      "color": "#4E79A7"
+    },
+    {
+      "name": "Orange",
+      "color": "#F28E2B"
+    },
+    {
+      "name": "Red",
+      "color": "#E15759"
+    },
+    {
+      "name": "Teal",
+      "color": "#76B7B2"
+    },
+    {
+      "name": "Green",
+      "color": "#59A14F"
+    },
+    {
+      "name": "Yellow",
+      "color": "#EDC948"
+    },
+    {
+      "name": "Purple",
+      "color": "#B07AA1"
+    },
+    {
+      "name": "Pink",
+      "color": "#FF9DA7"
+    },
+    {
+      "name": "Brown",
+      "color": "#9C755F"
+    },
+    {
+      "name": "Gray",
+      "color": "#BAB0AC"
+    }
+  ]
+}

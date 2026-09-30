@@ -1,0 +1,49 @@
+{
+  "format": "color-palette-manager",
+  "version": 3,
+  "encoding": "UTF-8",
+  "name": "NPG Nature-style 10",
+  "description": "Common NPG palette used in scientific figures. This is a Nature-style palette, not an official mandatory Nature author palette.",
+  "palette": [
+    {
+      "name": "NPG 1",
+      "color": "#E64B35"
+    },
+    {
+      "name": "NPG 2",
+      "color": "#4DBBD5"
+    },
+    {
+      "name": "NPG 3",
+      "color": "#00A087"
+    },
+    {
+      "name": "NPG 4",
+      "color": "#3C5488"
+    },
+    {
+      "name": "NPG 5",
+      "color": "#F39B7F"
+    },
+    {
+      "name": "NPG 6",
+      "color": "#8491B4"
+    },
+    {
+      "name": "NPG 7",
+      "color": "#91D1C2"
+    },
+    {
+      "name": "NPG 8",
+      "color": "#DC0000"
+    },
+    {
+      "name": "NPG 9",
+      "color": "#7E6148"
+    },
+    {
+      "name": "NPG 10",
+      "color": "#B09C85"
+    }
+  ]
+}

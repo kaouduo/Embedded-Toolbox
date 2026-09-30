@@ -1,0 +1,137 @@
+{
+  "format": "color-palette-manager",
+  "version": 3,
+  "encoding": "UTF-8",
+  "name": "KiCad Skyline PCB Copper Layers",
+  "description": "F.Cu, B.Cu, and In1.Cu through In30.Cu colors from the Skyline KiCad theme.",
+  "palette": [
+    {
+      "name": "F.Cu",
+      "color": "#1B90B3"
+    },
+    {
+      "name": "B.Cu",
+      "color": "#28BEBE"
+    },
+    {
+      "name": "In1.Cu",
+      "color": "#18D4FF"
+    },
+    {
+      "name": "In2.Cu",
+      "color": "#A9DD00"
+    },
+    {
+      "name": "In3.Cu",
+      "color": "#004DB1"
+    },
+    {
+      "name": "In4.Cu",
+      "color": "#DDAF00"
+    },
+    {
+      "name": "In5.Cu",
+      "color": "#B1006D"
+    },
+    {
+      "name": "In6.Cu",
+      "color": "#FF8B44"
+    },
+    {
+      "name": "In7.Cu",
+      "color": "#18D4FF"
+    },
+    {
+      "name": "In8.Cu",
+      "color": "#DD8200"
+    },
+    {
+      "name": "In9.Cu",
+      "color": "#004DB1"
+    },
+    {
+      "name": "In10.Cu",
+      "color": "#DDAF00"
+    },
+    {
+      "name": "In11.Cu",
+      "color": "#B1006D"
+    },
+    {
+      "name": "In12.Cu",
+      "color": "#FF8B44"
+    },
+    {
+      "name": "In13.Cu",
+      "color": "#18D4FF"
+    },
+    {
+      "name": "In14.Cu",
+      "color": "#DD8200"
+    },
+    {
+      "name": "In15.Cu",
+      "color": "#004DB1"
+    },
+    {
+      "name": "In16.Cu",
+      "color": "#DDAF00"
+    },
+    {
+      "name": "In17.Cu",
+      "color": "#B1006D"
+    },
+    {
+      "name": "In18.Cu",
+      "color": "#FF8B44"
+    },
+    {
+      "name": "In19.Cu",
+      "color": "#18D4FF"
+    },
+    {
+      "name": "In20.Cu",
+      "color": "#DD8200"
+    },
+    {
+      "name": "In21.Cu",
+      "color": "#004DB1"
+    },
+    {
+      "name": "In22.Cu",
+      "color": "#DDAF00"
+    },
+    {
+      "name": "In23.Cu",
+      "color": "#B1006D"
+    },
+    {
+      "name": "In24.Cu",
+      "color": "#FF8B44"
+    },
+    {
+      "name": "In25.Cu",
+      "color": "#18D4FF"
+    },
+    {
+      "name": "In26.Cu",
+      "color": "#DD8200"
+    },
+    {
+      "name": "In27.Cu",
+      "color": "#004DB1"
+    },
+    {
+      "name": "In28.Cu",
+      "color": "#DDAF00"
+    },
+    {
+      "name": "In29.Cu",
+      "color": "#B1006D"
+    },
+    {
+      "name": "In30.Cu",
+      "color": "#FF8B44"
+    }
+  ]
+}
