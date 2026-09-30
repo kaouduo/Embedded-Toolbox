@@ -16,6 +16,7 @@ import {
   uniquePaletteName,
 } from "@/modules/color/core/palettes";
 import type { Palette } from "@/modules/color/core/palettes";
+import { exportPaletteJson } from "@/services/native/palette-export-service";
 
 const { t } = useI18n();
 const message = useMessage();
@@ -41,6 +42,8 @@ const selectedColor = computed(
 );
 const selectedHexDraft = ref(selectedColor.value?.color ?? "");
 const fileInput = ref<HTMLInputElement | null>(null);
+const exporting = ref(false);
+const lastExportPath = ref("");
 const collapsedIds = ref(new Set<string>());
 
 const paletteDialogOpen = ref(false);
@@ -227,26 +230,30 @@ async function copyColor(palette: Palette, index: number) {
   }
 }
 
-function downloadJson(payload: unknown, filename: string) {
-  const blob = new Blob(["\uFEFF", JSON.stringify(payload, null, 2)], {
-    type: "application/json;charset=utf-8",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+async function exportJson(payload: unknown, filename: string) {
+  if (exporting.value) return;
+  exporting.value = true;
+  try {
+    const result = await exportPaletteJson(payload, filename);
+    if (result.status === "saved") {
+      lastExportPath.value = result.path;
+      message.success(t("palette.exportSaved"));
+    } else if (result.status === "downloaded") {
+      message.info(t("palette.exportDownloaded"));
+    }
+  } catch {
+    message.error(t("palette.exportFailed"));
+  } finally {
+    exporting.value = false;
+  }
 }
 
 function exportOne(palette: Palette) {
-  downloadJson(exportSinglePalette(palette), `${safePaletteFilename(palette.name)}.json`);
+  return exportJson(exportSinglePalette(palette), `${safePaletteFilename(palette.name)}.json`);
 }
 
 function exportAll() {
-  downloadJson(exportPaletteCollection(palettes.value), "color-palette-collection.json");
+  return exportJson(exportPaletteCollection(palettes.value), "color-palette-collection.json");
 }
 
 async function importFiles(event: Event) {
@@ -329,7 +336,7 @@ function restoreDefaults() {
         t("palette.newPalette")
       }}</n-button>
       <n-button size="small" @click="fileInput?.click()">{{ t("palette.import") }}</n-button>
-      <n-button size="small" :disabled="palettes.length === 0" @click="exportAll">{{
+      <n-button size="small" :disabled="palettes.length === 0 || exporting" @click="exportAll">{{
         t("palette.exportAll")
       }}</n-button>
       <n-button size="small" @click="restoreDefaults">{{ t("palette.restore") }}</n-button>
@@ -345,6 +352,9 @@ function restoreDefaults() {
         @change="importFiles"
       />
     </div>
+    <p v-if="lastExportPath" class="export-location">
+      {{ t("palette.lastExportPath") }} <code>{{ lastExportPath }}</code>
+    </p>
 
     <div v-if="palettes.length === 0" class="empty-state">{{ t("palette.empty") }}</div>
     <div v-else class="palette-stack">
@@ -374,7 +384,7 @@ function restoreDefaults() {
             <n-button size="tiny" @click="openColorDialog(palette)">{{
               t("palette.addColor")
             }}</n-button>
-            <n-button size="tiny" @click="exportOne(palette)">{{
+            <n-button size="tiny" :disabled="exporting" @click="exportOne(palette)">{{
               t("palette.exportOne")
             }}</n-button>
             <n-button size="tiny" type="error" quaternary @click="removePalette(palette)">{{
@@ -556,6 +566,15 @@ function restoreDefaults() {
 }
 .file-input {
   display: none;
+}
+.export-location {
+  margin: -5px 0 14px;
+  color: var(--et-text-secondary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.export-location code {
+  font-family: Consolas, monospace;
 }
 .palette-stack {
   display: grid;

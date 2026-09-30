@@ -15,7 +15,7 @@ Embedded Toolbox 是面向嵌入式工程师的跨平台桌面工具箱。项目
 - `get_app_info` 原生通信示例
 - 数据转换工具：8 种整数/浮点类型、十进制/十六进制和 4 种字节/字序排列
 - Modbus RTU / TCP / ASCII 报文构建、解析、校验和调试
-- 色卡管理：创建和编辑任意数量的色板与颜色，导入导出 JSON 色卡，并保存到本地
+- 色卡管理：创建和编辑任意数量的色板与颜色，导入导出 JSON 色卡；桌面版导出时可选择保存路径
 - Serial、TCP/UDP、计算器、图像和设备管理占位页面
 - Vite+ 统一的开发、检查、测试和构建能力
 
@@ -30,7 +30,7 @@ Embedded Toolbox 是面向嵌入式工程师的跨平台桌面工具箱。项目
 | 状态管理    | Pinia             | 4.0.3                                |
 | UI          | Naive UI          | 2.45.3                               |
 | 国际化      | Vue I18n          | 11.4.12                              |
-| 桌面框架    | Tauri             | CLI 2.11.5 / Rust crate 2.11.6       |
+| 桌面框架    | Tauri             | CLI 2.11.5 / Rust crate 2.12.0       |
 | Native 后端 | Rust              | stable MSVC；开发环境验证版本 1.98.1 |
 | 包管理      | Vite+ 管理的 pnpm | 12.6.0                               |
 
