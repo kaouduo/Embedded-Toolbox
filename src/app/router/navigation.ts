@@ -17,7 +17,14 @@ export const navigation: NavItem[] = [
     key: "protocol",
     labelKey: "navigation.protocol",
     icon: "protocol",
-    children: [{ key: "protocol-modbus", labelKey: "tools.modbus", routeName: "protocol-modbus" }],
+    children: [
+      { key: "protocol-modbus", labelKey: "tools.modbus", routeName: "protocol-modbus" },
+      {
+        key: "protocol-modbus-debug",
+        labelKey: "tools.modbusDebug",
+        routeName: "protocol-modbus-debug",
+      },
+    ],
   },
   {
     key: "communication",

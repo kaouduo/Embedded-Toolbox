@@ -140,6 +140,20 @@ function padHexBytes(bytes: Uint8Array, targetLength: number): Uint8Array {
   return padded;
 }
 
+export type EncodeResult =
+  | { ok: true; bytes: Uint8Array }
+  | { ok: false; error: ConversionErrorCode };
+
+/**
+ * 把十进制数值文本编码为 ABCD 规范序字节。
+ * 供协议响应生成器复用，避免与 `convertCell()` 的编码逻辑分叉。
+ */
+export function encodeCanonical(input: string, definition: DataTypeDefinition): EncodeResult {
+  const encoded = encodeDecimal(input, definition);
+  if (encoded instanceof Uint8Array) return { ok: true, bytes: encoded };
+  return { ok: false, error: encoded.error ?? "invalidDecimal" };
+}
+
 export function convertCell(
   input: string,
   format: InputFormat,
