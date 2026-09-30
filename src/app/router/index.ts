@@ -19,6 +19,12 @@ const routes: RouteRecordRaw[] = [
     meta: { titleKey: "tools.modbus" },
   },
   {
+    path: "/protocol/modbus-debug",
+    name: "protocol-modbus-debug",
+    component: () => import("@/modules/protocol/views/ModbusDebugView.vue"),
+    meta: { titleKey: "tools.modbusDebug" },
+  },
+  {
     path: "/communication/serial",
     name: "communication-serial",
     component: () => import("@/modules/communication/views/SerialView.vue"),

@@ -29,10 +29,14 @@ import AppToolbar from "./AppToolbar.vue";
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  /* 允许纵向收缩，否则长页面会把内容撑出容器而无法滚动。 */
+  min-height: 0;
 }
 
 .app-content {
   flex: 1;
+  /* 与 .app-main 同理：flex 子项默认 min-height:auto 会阻止出现滚动条。 */
+  min-height: 0;
   overflow-y: auto;
   padding: 16px;
 }

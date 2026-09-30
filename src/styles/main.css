@@ -62,6 +62,15 @@ body,
   padding: 0;
 }
 
+/*
+ * naive-ui 的 n-config-provider 会在 #app 下多插一层 div。若不给它传递
+ * 100% 高度，内部 .app-layout / .app-content 的高度链就会在 auto 处断裂，
+ * 长页面会溢出视口，而 body 的 overflow: hidden 又让用户无法滚动。
+ */
+#app > * {
+  height: 100%;
+}
+
 body {
   background-color: var(--et-bg-base);
   color: var(--et-text-primary);
