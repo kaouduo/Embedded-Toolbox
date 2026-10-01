@@ -1,5 +1,5 @@
 use probe_rs::config::MemoryRegion;
-use probe_rs::flashing::{erase, DownloadOptions, FlashProgress};
+use probe_rs::flashing::{erase, DownloadOptions, FlashProgress, ProgressEvent};
 use probe_rs::probe::{
     cmsisdap::CmsisDapFactory,
     list::{Accessibility, ProbeListItem},
@@ -25,6 +25,17 @@ use crate::services::target_catalog_service::remove_pack;
 
 /// Upper bound for one-shot RAM diagnostics reads, to avoid stalling the UI.
 const MAX_RAM_READ_BYTES: usize = 4096;
+
+fn error_chain(error: &dyn std::error::Error) -> String {
+    let mut message = error.to_string();
+    let mut source = error.source();
+    while let Some(cause) = source {
+        message.push_str(": ");
+        message.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    message
+}
 
 /// Attaches to the selected target over SWD and returns a live session.
 ///
@@ -314,11 +325,28 @@ impl ProbeSessionManager {
         options.keep_unwritten_bytes = true;
         options.do_chip_erase = false;
         options.preferred_algos = vec![plan.flash_algorithm.clone()];
+        let last_stage = std::sync::Arc::new(std::sync::Mutex::new(
+            "preparing Flash algorithm".to_owned(),
+        ));
+        let progress_stage = last_stage.clone();
+        options.progress = FlashProgress::new(move |event| match event {
+            ProgressEvent::Started(operation) | ProgressEvent::Failed(operation) => {
+                if let Ok(mut stage) = progress_stage.lock() {
+                    *stage = format!("{operation:?}");
+                }
+            }
+            _ => {}
+        });
         let result = loader.commit(&mut handle.session, options);
         handle.core_halted = true;
         result.map_err(|error| {
+            let stage = last_stage
+                .lock()
+                .map(|stage| stage.clone())
+                .unwrap_or_default();
             NativeError::io(format!(
-                "Programming or verification failed; Flash may be partially changed: {error}"
+                "Flash operation failed during {stage}; Flash may be partially changed: {}",
+                error_chain(&error)
             ))
         })?;
         Ok(BinaryProgramResult {
