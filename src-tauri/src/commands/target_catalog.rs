@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 use crate::domain::error::NativeError;
-use crate::domain::target_catalog::PackRecord;
+use crate::domain::target_catalog::{PackAnalysis, PackRecord};
 use crate::services::target_catalog_service;
 
 fn catalog_dir(app: &AppHandle) -> Result<PathBuf, NativeError> {
@@ -29,4 +29,26 @@ pub async fn import_target_pack(app: AppHandle, path: String) -> Result<PackReco
     })
     .await
     .map_err(|_| NativeError::internal("target pack import task failed"))?
+}
+
+#[tauri::command]
+pub async fn list_target_analyses(app: AppHandle) -> Result<Vec<PackAnalysis>, NativeError> {
+    let root = catalog_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || target_catalog_service::list_analyses(&root))
+        .await
+        .map_err(|_| NativeError::internal("target analysis task failed"))?
+}
+
+#[tauri::command]
+pub async fn analyze_target_pack(
+    app: AppHandle,
+    pack_id: String,
+    sha256: String,
+) -> Result<PackAnalysis, NativeError> {
+    let root = catalog_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        target_catalog_service::analyze_pack(&root, &pack_id, &sha256)
+    })
+    .await
+    .map_err(|_| NativeError::internal("target conversion task failed"))?
 }

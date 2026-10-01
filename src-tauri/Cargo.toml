@@ -25,6 +25,9 @@ serialport = "4"
 sha2 = "0.10"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 roxmltree = "0.20"
+probe-rs = "=0.32.0"
+target-gen = "=0.32.0"
+bincode = { version = "2", features = ["serde"] }
 tauri = { version = "=2.12.0", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2.8.0"

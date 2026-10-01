@@ -9,11 +9,14 @@ use zip::ZipArchive;
 
 use crate::domain::error::NativeError;
 use crate::domain::target_catalog::{
-    AlgorithmRecord, DeviceRecord, MemoryRegionRecord, PackRecord, TargetCapability,
+    AlgorithmRecord, DeviceRecord, MemoryRegionRecord, PackAnalysis, PackRecord, TargetAnalysis,
+    TargetCapability,
 };
 
 const MAX_PACK_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_PDSC_BYTES: u64 = 16 * 1024 * 1024;
+const CONVERTER_VERSION: &str = "target-gen 0.32.0";
+const CONVERSION_DIR: &str = "conversion-target-gen-0.32.0";
 
 pub fn list_packs(root: &Path) -> Result<Vec<PackRecord>, NativeError> {
     if !root.exists() {
@@ -34,6 +37,150 @@ pub fn list_packs(root: &Path) -> Result<Vec<PackRecord>, NativeError> {
     }
     packs.sort_by(|a: &PackRecord, b: &PackRecord| a.id.cmp(&b.id));
     Ok(packs)
+}
+
+pub fn list_analyses(root: &Path) -> Result<Vec<PackAnalysis>, NativeError> {
+    if !root.exists() {
+        return Ok(Vec::new());
+    }
+    let mut analyses = Vec::new();
+    for entry in fs::read_dir(root)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let path = entry.path().join(CONVERSION_DIR).join("analysis.json");
+        if path.exists() {
+            let analysis: PackAnalysis = serde_json::from_slice(&fs::read(&path)?)
+                .map_err(|error| NativeError::io(format!("{}: {error}", path.display())))?;
+            analyses.push(analysis);
+        }
+    }
+    analyses.sort_by(|a, b| a.pack_id.cmp(&b.pack_id));
+    Ok(analyses)
+}
+
+pub fn analyze_pack(root: &Path, pack_id: &str, sha256: &str) -> Result<PackAnalysis, NativeError> {
+    if sha256.len() != 64 || !sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(NativeError::invalid_argument("Invalid Pack SHA-256"));
+    }
+    let dir = root.join(format!("{}-{}", safe_component(pack_id), &sha256[..12]));
+    let record: PackRecord = serde_json::from_slice(&fs::read(dir.join("manifest.json"))?)
+        .map_err(|error| NativeError::io(format!("Invalid Pack manifest: {error}")))?;
+    if record.id != pack_id || !record.sha256.eq_ignore_ascii_case(sha256) {
+        return Err(NativeError::invalid_argument(
+            "Pack identity does not match catalog",
+        ));
+    }
+    let source = dir.join("source.pack");
+    if fs::metadata(&source)?.len() > MAX_PACK_BYTES {
+        return Err(NativeError::invalid_argument("Stored Pack exceeds 512 MiB"));
+    }
+    let actual_sha256 = format!("{:x}", Sha256::digest(fs::read(&source)?));
+    if actual_sha256 != record.sha256 {
+        return Err(NativeError::invalid_argument(
+            "Stored Pack hash does not match manifest",
+        ));
+    }
+    let conversion_dir = dir.join(CONVERSION_DIR);
+    let analysis_path = conversion_dir.join("analysis.json");
+    if analysis_path.exists() && conversion_dir.join("target-families.bin").exists() {
+        let previous: PackAnalysis = serde_json::from_slice(&fs::read(&analysis_path)?)
+            .map_err(|error| NativeError::io(format!("Invalid analysis: {error}")))?;
+        let converted_sha256 = format!(
+            "{:x}",
+            Sha256::digest(fs::read(conversion_dir.join("target-families.bin"))?)
+        );
+        if previous.converter_version == CONVERTER_VERSION
+            && previous.sha256 == record.sha256
+            && previous.target_definition_sha256 == converted_sha256
+        {
+            return Ok(previous);
+        }
+        // Only generated artifacts live here; the original Pack and manifest stay intact.
+        fs::remove_dir_all(&conversion_dir)?;
+    }
+
+    let mut families = Vec::new();
+    target_gen::generate::visit_file(&source, &mut families).map_err(|error| {
+        NativeError::invalid_argument(format!("Pack conversion failed: {error:#}"))
+    })?;
+    let mut registry = probe_rs::config::Registry::new();
+    let mut valid_families = Vec::new();
+    let mut failures = std::collections::BTreeMap::new();
+    for mut family in families {
+        family.source = probe_rs::config::TargetDescriptionSource::External;
+        let names: Vec<String> = family
+            .variants
+            .iter()
+            .map(|chip| chip.name.clone())
+            .collect();
+        match registry.add_target_family(family.clone()) {
+            Ok(_) => valid_families.push(family),
+            Err(error) => {
+                for name in names {
+                    failures.insert(name, error.to_string());
+                }
+            }
+        }
+    }
+    let targets = record
+        .devices
+        .iter()
+        .map(|device| {
+            let reason = failures.get(&device.name).cloned().or_else(|| {
+                if device.capability == TargetCapability::MissingAlgorithm {
+                    Some("Flash algorithm file is missing from Pack".to_owned())
+                } else if device.capability == TargetCapability::DescriptionOnly {
+                    Some("Pack has no Flash algorithm for this device".to_owned())
+                } else {
+                    match registry.get_target_by_name(&device.name) {
+                        Ok(target) if target.flash_algorithms.is_empty() => {
+                            Some("Converted target has no usable Flash algorithm".to_owned())
+                        }
+                        Ok(_) => None,
+                        Err(error) => Some(error.to_string()),
+                    }
+                }
+            });
+            TargetAnalysis {
+                name: device.name.clone(),
+                ready: reason.is_none(),
+                reason,
+            }
+        })
+        .collect();
+    let converted = bincode::serde::encode_to_vec(&valid_families, bincode::config::standard())
+        .map_err(|error| NativeError::internal(error.to_string()))?;
+    let analysis = PackAnalysis {
+        pack_id: record.id,
+        sha256: record.sha256,
+        converter_version: CONVERTER_VERSION.to_owned(),
+        target_definition_sha256: format!("{:x}", Sha256::digest(&converted)),
+        targets,
+    };
+    let analysis_json = serde_json::to_vec_pretty(&analysis)
+        .map_err(|error| NativeError::internal(error.to_string()))?;
+    let staging = dir.join(format!(
+        ".conversion-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|error| NativeError::internal(error.to_string()))?
+            .as_nanos()
+    ));
+    fs::create_dir(&staging)?;
+    let result = (|| -> Result<(), NativeError> {
+        fs::write(staging.join("target-families.bin"), converted)?;
+        fs::write(staging.join("analysis.json"), analysis_json)?;
+        fs::rename(&staging, &conversion_dir)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_dir_all(&staging);
+    }
+    result?;
+    Ok(analysis)
 }
 
 pub fn import_pack(root: &Path, source: &Path) -> Result<PackRecord, NativeError> {
@@ -397,6 +544,63 @@ mod tests {
         assert!(!pack.devices.is_empty());
         if let Ok(expected) = std::env::var("CMSIS_PACK_EXPECTED_DEVICES") {
             assert_eq!(pack.devices.len(), expected.parse::<usize>().unwrap());
+        }
+        fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[test]
+    fn converts_external_pack_when_supplied() {
+        let Ok(path) = std::env::var("CMSIS_PACK_CONVERSION_PATH") else {
+            return;
+        };
+        let temp = std::env::temp_dir().join(format!(
+            "target-conversion-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let pack = import_pack(&temp, Path::new(&path)).unwrap();
+        let result = analyze_pack(&temp, &pack.id, &pack.sha256).unwrap();
+        eprintln!(
+            "{}: {} / {} definitions valid",
+            pack.id,
+            result.targets.iter().filter(|target| target.ready).count(),
+            result.targets.len()
+        );
+        assert_eq!(result.targets.len(), pack.devices.len());
+        assert!(result.targets.iter().any(|target| target.ready));
+        assert_eq!(analyze_pack(&temp, &pack.id, &pack.sha256).unwrap(), result);
+        assert_eq!(list_analyses(&temp).unwrap(), vec![result]);
+        let plan_device = match pack.name.as_str() {
+            "N32H47x_DFP" => Some("N32H473CC"),
+            "STM32F1xx_DFP" => Some("STM32F100C4"),
+            "STM32G4xx_DFP" => Some("STM32G411CCTx"),
+            _ => None,
+        };
+        if let Some(device) = plan_device {
+            let firmware = temp.join("firmware.bin");
+            fs::write(&firmware, vec![0xAA; 256]).unwrap();
+            let plan = crate::services::flash_plan_service::plan_binary(
+                &temp,
+                &pack.id,
+                &pack.sha256,
+                device,
+                &firmware,
+                "0x08000000",
+            )
+            .unwrap();
+            assert_eq!(plan.byte_count, 256);
+            assert!(crate::services::flash_plan_service::plan_binary(
+                &temp,
+                &pack.id,
+                &pack.sha256,
+                device,
+                &firmware,
+                ""
+            )
+            .is_err());
         }
         fs::remove_dir_all(temp).unwrap();
     }

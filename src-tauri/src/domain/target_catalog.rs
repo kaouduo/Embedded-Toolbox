@@ -55,3 +55,21 @@ pub enum TargetCapability {
     /// The PDSC references an FLM that is absent from the Pack.
     MissingAlgorithm,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TargetAnalysis {
+    pub name: String,
+    pub ready: bool,
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PackAnalysis {
+    pub pack_id: String,
+    pub sha256: String,
+    pub converter_version: String,
+    pub target_definition_sha256: String,
+    pub targets: Vec<TargetAnalysis>,
+}
