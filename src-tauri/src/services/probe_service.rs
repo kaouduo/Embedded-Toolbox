@@ -22,6 +22,7 @@ use crate::domain::probe::{
 };
 use crate::services::flash_plan_service;
 use crate::services::target_catalog_service;
+use crate::services::target_identity_service;
 
 /// Upper bound for one-shot RAM diagnostics reads, to avoid stalling the UI.
 const MAX_RAM_READ_BYTES: usize = 4096;
@@ -100,24 +101,6 @@ fn describe_cores(session: &Session) -> Vec<String> {
         .into_iter()
         .map(|(_, core)| format!("{core:?}"))
         .collect()
-}
-
-fn read_f407_identity(session: &mut Session) -> Result<TargetIdentityResult, NativeError> {
-    let mut core = session
-        .core(0)
-        .map_err(|error| NativeError::io(format!("Open core failed: {error}")))?;
-    let idcode = core
-        .read_word_32(0xE004_2000)
-        .map_err(|error| NativeError::io(format!("Read DBGMCU ID failed: {error}")))?;
-    let flash_kib = core
-        .read_word_16(0x1FFF_7A22)
-        .map_err(|error| NativeError::io(format!("Read Flash size failed: {error}")))?;
-    Ok(TargetIdentityResult {
-        device_id: format!("0x{:03X}", idcode & 0x0FFF),
-        flash_kib,
-        flash_compatible: (idcode & 0x0FFF) == 0x413 && flash_kib == 1024,
-        exact_part_verified: false,
-    })
 }
 
 pub fn list_supported_probes() -> Vec<ProbeRecord> {
@@ -258,24 +241,17 @@ impl ProbeSessionManager {
         Ok(handle.info(session_id))
     }
 
-    /// Read-only compatibility check for the first hardware acceptance target.
-    /// STM32F405/407/415/417 share DEV_ID 0x413, so the result cannot prove
-    /// the exact printed part number or package.
+    /// Read-only physical compatibility check supplied by a target provider.
     pub fn inspect_target(&self, session_id: &str) -> Result<TargetIdentityResult, NativeError> {
         let mut sessions = self.lock_sessions()?;
         let handle = sessions
             .get_mut(session_id)
             .ok_or_else(|| NativeError::not_found("Probe session is not open"))?;
-        if !handle.session.target().name.starts_with("STM32F407ZG") {
-            return Err(NativeError::invalid_argument(
-                "Hardware identity check is currently implemented only for STM32F407ZG targets",
-            ));
-        }
-        read_f407_identity(&mut handle.session)
+        Ok(target_identity_service::inspect(&mut handle.session)?.report)
     }
 
-    /// First hardware acceptance path: sector erase, program and read-back
-    /// verification for an explicitly confirmed STM32F407ZG 1 MiB target.
+    /// Sector erase, program and read-back verification using Pack metadata
+    /// and an independent provider for physical target compatibility.
     pub fn program_binary(
         &self,
         root: &Path,
@@ -285,21 +261,11 @@ impl ProbeSessionManager {
         expected_sha256: &str,
         confirmed_part: bool,
     ) -> Result<BinaryProgramResult, NativeError> {
-        if !confirmed_part {
-            return Err(NativeError::invalid_argument(
-                "Confirm the physical STM32F407ZGT6 marking before programming",
-            ));
-        }
         let mut sessions = self.lock_sessions()?;
         let handle = sessions
             .get_mut(session_id)
             .ok_or_else(|| NativeError::not_found("Probe session is not open"))?;
         let device = handle.session.target().name.clone();
-        if !device.starts_with("STM32F407ZG") {
-            return Err(NativeError::invalid_argument(
-                "Programming is currently enabled only for STM32F407ZG targets",
-            ));
-        }
         let plan = flash_plan_service::plan_binary(
             root,
             &handle.pack_id,
@@ -313,19 +279,27 @@ impl ProbeSessionManager {
         }
         let start = u64::from_str_radix(&plan.start_address[2..], 16)
             .map_err(|_| NativeError::internal("Invalid planned address"))?;
+        let erase_start = u64::from_str_radix(&plan.erase_start_address[2..], 16)
+            .map_err(|_| NativeError::internal("Invalid planned erase boundary"))?;
         let erase_end = u64::from_str_radix(&plan.erase_end_address_exclusive[2..], 16)
             .map_err(|_| NativeError::internal("Invalid planned erase boundary"))?;
-        if start < 0x0800_0000 || erase_end > 0x0810_0000 {
-            return Err(NativeError::invalid_argument(
-                "Plan exceeds STM32F407ZG internal Flash",
-            ));
+        let identity = target_identity_service::inspect(&mut handle.session)?;
+        if !confirmed_part {
+            return Err(NativeError::invalid_argument(format!(
+                "Confirm the physical {} marking before programming",
+                identity.report.expected_marking,
+            )));
         }
-        let identity = read_f407_identity(&mut handle.session)?;
-        if !identity.flash_compatible {
+        if !identity.report.flash_compatible {
             return Err(NativeError::conflict(format!(
                 "Physical target is not compatible: device ID {}, Flash {} KiB",
-                identity.device_id, identity.flash_kib,
+                identity.report.device_id, identity.report.flash_kib,
             )));
+        }
+        if erase_start < identity.flash_range.start || erase_end > identity.flash_range.end {
+            return Err(NativeError::invalid_argument(
+                "Plan exceeds physically validated internal Flash",
+            ));
         }
         let bytes = fs::read(firmware)?;
         if format!("{:x}", Sha256::digest(&bytes)) != plan.firmware_sha256 {

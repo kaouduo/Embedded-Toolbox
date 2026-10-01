@@ -47,7 +47,7 @@ const nextStep = computed(() => {
   if (!targetIdentity.value) return "nextIdentity";
   if (!targetIdentity.value.flashCompatible) return "nextMismatch";
   if (programResult.value?.verified) return "nextVerified";
-  return selectedDevice.value.name.startsWith("STM32F407ZG") ? "nextProgram" : "nextProgramBlocked";
+  return "nextProgram";
 });
 watch([selectedId, selectedDeviceName, firmwarePath, startAddress], () => {
   flashPlan.value = null;
@@ -338,9 +338,9 @@ onMounted(refreshProbes);
               <p>{{ flashPlan.memoryRegion }} · {{ flashPlan.flashAlgorithm }}</p>
               <p>SHA-256: {{ flashPlan.firmwareSha256 }}</p>
               <p>{{ t("targetCatalog.planOnly") }}</p>
-              <template v-if="session && selectedDevice.name.startsWith('STM32F407ZG')">
+              <template v-if="session">
                 <p>{{ t("targetCatalog.programNotice") }}</p>
-                <NCheckbox v-model:checked="confirmedPart">{{ t("targetCatalog.confirmPart") }}</NCheckbox>
+                <NCheckbox v-model:checked="confirmedPart">{{ t("targetCatalog.confirmPart", { part: targetIdentity?.expectedMarking ?? selectedDevice.name }) }}</NCheckbox>
                 <NButton type="error" :disabled="!targetIdentity?.flashCompatible || !confirmedPart || busy" :loading="busy" @click="executeBinaryPlan">{{ t("targetCatalog.programAndVerify") }}</NButton>
                 <p v-if="programResult?.verified">{{ t("targetCatalog.programVerified") }} · {{ programResult.byteCount }} B · SHA-256: {{ programResult.firmwareSha256 }}</p>
               </template>

@@ -42,6 +42,7 @@ export interface TargetIdentityResult {
   flashKib: number;
   flashCompatible: boolean;
   exactPartVerified: boolean;
+  expectedMarking: string;
 }
 
 export async function listSupportedProbes(): Promise<ProbeRecord[]> {

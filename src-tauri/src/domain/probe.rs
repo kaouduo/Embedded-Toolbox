@@ -68,4 +68,5 @@ pub struct TargetIdentityResult {
     pub flash_kib: u16,
     pub flash_compatible: bool,
     pub exact_part_verified: bool,
+    pub expected_marking: String,
 }
