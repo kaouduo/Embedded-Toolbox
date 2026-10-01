@@ -18,12 +18,10 @@ use crate::domain::error::NativeError;
 use crate::domain::flash_plan::BinaryProgramResult;
 use crate::domain::probe::{
     ProbeConnectionResult, ProbeRecord, ProbeSelection, ProbeSessionInfo, RamReadResult,
-    TargetIdentityResult,
 };
 use crate::services::flash_plan_service;
 use crate::services::target_catalog_service;
 use crate::services::target_catalog_service::remove_pack;
-use crate::services::target_identity_service;
 
 /// Upper bound for one-shot RAM diagnostics reads, to avoid stalling the UI.
 const MAX_RAM_READ_BYTES: usize = 4096;
@@ -141,7 +139,6 @@ pub fn test_target_connection(
         target_name: session.target().name.clone(),
         core_types: describe_cores(&session),
         voltage,
-        identity_verified: false,
     })
 }
 
@@ -167,7 +164,6 @@ impl SessionHandle {
             core_types: describe_cores(&self.session),
             speed_khz: self.speed_khz,
             voltage: self.voltage,
-            identity_verified: false,
             core_halted: self.core_halted,
         }
     }
@@ -261,15 +257,6 @@ impl ProbeSessionManager {
         Ok(handle.info(session_id))
     }
 
-    /// Read-only physical compatibility check supplied by a target provider.
-    pub fn inspect_target(&self, session_id: &str) -> Result<TargetIdentityResult, NativeError> {
-        let mut sessions = self.lock_sessions()?;
-        let handle = sessions
-            .get_mut(session_id)
-            .ok_or_else(|| NativeError::not_found("Probe session is not open"))?;
-        Ok(target_identity_service::inspect(&mut handle.session)?.report)
-    }
-
     /// Sector erase, program and read-back verification using the selected
     /// Pack target. Device-specific identity registers are not required.
     pub fn program_binary(
@@ -341,8 +328,7 @@ impl ProbeSessionManager {
         })
     }
 
-    /// Erases the physically checked internal Flash range, including sectors
-    /// outside the current firmware. Option bytes and other NVM are excluded.
+    /// Erases the selected Pack target's primary non-alias NVM region.
     pub fn erase_internal_flash(
         &self,
         root: &Path,
@@ -373,77 +359,7 @@ impl ProbeSessionManager {
                 "Device target definition is not validated",
             ));
         }
-        let identity = target_identity_service::inspect(&mut handle.session)?;
-        if !identity.report.flash_compatible {
-            return Err(NativeError::conflict(format!(
-                "Physical target is not compatible: device ID {}, Flash {} KiB",
-                identity.report.device_id, identity.report.flash_kib,
-            )));
-        }
-        let range = identity.flash_range;
-        let target = handle.session.target();
-        let nvm_regions = target
-            .memory_map
-            .iter()
-            .filter(|region| {
-                matches!(region, MemoryRegion::Nvm(nvm)
-                if !nvm.is_alias && nvm.range.start <= range.start && range.end <= nvm.range.end)
-            })
-            .count();
-        let overlapping_regions = target
-            .memory_map
-            .iter()
-            .filter(|region| {
-                matches!(region, MemoryRegion::Nvm(nvm)
-                    if nvm.range.start < range.end && range.start < nvm.range.end)
-            })
-            .count();
-        let algorithms: Vec<_> = target
-            .flash_algorithms
-            .iter()
-            .filter(|algorithm| {
-                algorithm.flash_properties.address_range.start <= range.start
-                    && range.end <= algorithm.flash_properties.address_range.end
-            })
-            .collect();
-        if nvm_regions != 1 || overlapping_regions != 1 || algorithms.len() != 1 {
-            return Err(NativeError::invalid_argument(
-                "Full internal Flash range requires one NVM region and one Flash algorithm",
-            ));
-        }
-        let properties = &algorithms[0].flash_properties;
-        let sectors: Vec<_> = properties
-            .sectors
-            .iter()
-            .map(|sector| (sector.address, sector.size))
-            .collect();
-        let (erase_start, erase_end, sector_count) = flash_plan_service::erase_footprint(
-            properties.address_range.clone(),
-            &sectors,
-            range.start,
-            range.end,
-        )?;
-        if erase_start != range.start
-            || erase_end != range.end
-            || sector_count != identity.erase_sectors.len()
-        {
-            return Err(NativeError::invalid_argument(
-                "Flash algorithm sectors do not cover the exact internal Flash range",
-            ));
-        }
-        for expected in &identity.erase_sectors {
-            let (start, end, count) = flash_plan_service::erase_footprint(
-                properties.address_range.clone(),
-                &sectors,
-                expected.start,
-                expected.end,
-            )?;
-            if start != expected.start || end != expected.end || count != 1 {
-                return Err(NativeError::invalid_argument(
-                    "Flash algorithm sector geometry differs from the physical target",
-                ));
-            }
-        }
+        let range = flash_plan_service::plan_full_erase(handle.session.target())?;
         let result = erase(
             &mut handle.session,
             &mut FlashProgress::empty(),

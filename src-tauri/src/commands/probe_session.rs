@@ -4,7 +4,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::domain::error::NativeError;
 use crate::domain::flash_plan::BinaryProgramResult;
-use crate::domain::probe::{ProbeSelection, ProbeSessionInfo, RamReadResult, TargetIdentityResult};
+use crate::domain::probe::{ProbeSelection, ProbeSessionInfo, RamReadResult};
 use crate::services::probe_service::ProbeSessionManager;
 
 /// Thin command layer over `ProbeSessionManager`. All session operations
@@ -45,17 +45,6 @@ pub async fn probe_session_status(
     tauri::async_runtime::spawn_blocking(move || manager.status(&session_id))
         .await
         .map_err(|_| NativeError::internal("Probe status task failed"))?
-}
-
-#[tauri::command]
-pub async fn inspect_probe_target(
-    state: State<'_, Arc<ProbeSessionManager>>,
-    session_id: String,
-) -> Result<TargetIdentityResult, NativeError> {
-    let manager = Arc::clone(state.inner());
-    tauri::async_runtime::spawn_blocking(move || manager.inspect_target(&session_id))
-        .await
-        .map_err(|_| NativeError::internal("Probe identity task failed"))?
 }
 
 #[tauri::command]

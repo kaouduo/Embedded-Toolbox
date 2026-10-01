@@ -15,7 +15,6 @@ export interface ProbeConnectionResult {
   targetName: string;
   coreTypes: string[];
   voltage: number | null;
-  identityVerified: boolean;
 }
 
 export interface ProbeSessionInfo {
@@ -26,7 +25,6 @@ export interface ProbeSessionInfo {
   coreTypes: string[];
   speedKhz: number;
   voltage: number | null;
-  identityVerified: boolean;
   coreHalted: boolean;
 }
 
@@ -35,14 +33,6 @@ export interface RamReadResult {
   bytesRead: number;
   data: number[];
   coreHalted: boolean;
-}
-
-export interface TargetIdentityResult {
-  deviceId: string;
-  flashKib: number;
-  flashCompatible: boolean;
-  exactPartVerified: boolean;
-  expectedMarking: string;
 }
 
 export async function listSupportedProbes(): Promise<ProbeRecord[]> {
@@ -72,10 +62,6 @@ export function attachProbeSession(args: {
 
 export function probeSessionStatus(sessionId: string): Promise<ProbeSessionInfo> {
   return invokeNative<ProbeSessionInfo>("probe_session_status", { sessionId });
-}
-
-export function inspectProbeTarget(sessionId: string): Promise<TargetIdentityResult> {
-  return invokeNative<TargetIdentityResult>("inspect_probe_target", { sessionId });
 }
 
 export function haltProbeSession(sessionId: string): Promise<ProbeSessionInfo> {

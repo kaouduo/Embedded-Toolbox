@@ -2,7 +2,7 @@ use std::fs;
 use std::ops::Range;
 use std::path::Path;
 
-use probe_rs::config::MemoryRegion;
+use probe_rs::config::{MemoryRegion, Target};
 use sha2::{Digest, Sha256};
 
 use crate::domain::error::NativeError;
@@ -10,6 +10,63 @@ use crate::domain::flash_plan::{BinaryFlashPlan, FirmwareSegmentPlan};
 use crate::services::{firmware_image, target_catalog_service};
 
 const MAX_FIRMWARE_BYTES: u64 = 512 * 1024 * 1024;
+
+/// Resolve the one primary Flash area that a Pack can safely describe as a
+/// full-erase target. No silicon-specific ID or capacity register is read.
+pub fn plan_full_erase(target: &Target) -> Result<Range<u64>, NativeError> {
+    let nvm_regions: Vec<_> = target
+        .memory_map
+        .iter()
+        .filter_map(|region| match region {
+            MemoryRegion::Nvm(nvm) if !nvm.is_alias => Some(nvm),
+            _ => None,
+        })
+        .collect();
+    let region = if nvm_regions.len() == 1 {
+        nvm_regions[0]
+    } else {
+        return Err(NativeError::invalid_argument(
+            "Pack must define exactly one non-alias Flash region for full erase",
+        ));
+    };
+    let range = region.range.clone();
+    if range.start >= range.end {
+        return Err(NativeError::invalid_argument(
+            "Primary Flash range is empty",
+        ));
+    }
+    let algorithms: Vec<_> = target
+        .flash_algorithms
+        .iter()
+        .filter(|algorithm| {
+            algorithm.flash_properties.address_range.start <= range.start
+                && range.end <= algorithm.flash_properties.address_range.end
+        })
+        .collect();
+    if algorithms.len() != 1 {
+        return Err(NativeError::invalid_argument(
+            "Full erase requires one Flash algorithm covering the primary region",
+        ));
+    }
+    let properties = &algorithms[0].flash_properties;
+    let sectors: Vec<_> = properties
+        .sectors
+        .iter()
+        .map(|sector| (sector.address, sector.size))
+        .collect();
+    let (erase_start, erase_end, sector_count) = erase_footprint(
+        properties.address_range.clone(),
+        &sectors,
+        range.start,
+        range.end,
+    )?;
+    if erase_start != range.start || erase_end != range.end || sector_count == 0 {
+        return Err(NativeError::invalid_argument(
+            "Flash algorithm sectors do not exactly cover the primary region",
+        ));
+    }
+    Ok(range)
+}
 
 pub fn plan_binary(
     root: &Path,

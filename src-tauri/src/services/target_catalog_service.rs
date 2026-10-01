@@ -668,6 +668,11 @@ mod tests {
             _ => None,
         };
         if let Some(device) = plan_device {
+            let (registry, _) = load_validated_registry(&temp, &pack.id, &pack.sha256).unwrap();
+            let target = registry.get_target_by_name(device).unwrap();
+            let erase_range =
+                crate::services::flash_plan_service::plan_full_erase(&target).unwrap();
+            assert!(erase_range.start <= 0x0800_0000 && 0x0800_0000 < erase_range.end);
             let firmware = temp.join("firmware.bin");
             fs::write(&firmware, vec![0xAA; 256]).unwrap();
             let plan = crate::services::flash_plan_service::plan_binary(
@@ -692,18 +697,41 @@ mod tests {
             if pack.name == "STM32F4xx_DFP" {
                 let (registry, _) = load_validated_registry(&temp, &pack.id, &pack.sha256).unwrap();
                 let target = registry.get_target_by_name(device).unwrap();
-                let algorithms: Vec<_> = target.flash_algorithms.iter().filter(|algorithm| {
-                    algorithm.flash_properties.address_range.start <= 0x0800_0000
-                        && 0x0810_0000 <= algorithm.flash_properties.address_range.end
-                }).collect();
+                let algorithms: Vec<_> = target
+                    .flash_algorithms
+                    .iter()
+                    .filter(|algorithm| {
+                        algorithm.flash_properties.address_range.start <= 0x0800_0000
+                            && 0x0810_0000 <= algorithm.flash_properties.address_range.end
+                    })
+                    .collect();
                 assert_eq!(algorithms.len(), 1);
                 let properties = &algorithms[0].flash_properties;
-                let sectors: Vec<_> = properties.sectors.iter().map(|sector| (sector.address, sector.size)).collect();
-                for expected in crate::services::target_identity_service::stm32f407zg_erase_sectors() {
+                let sectors: Vec<_> = properties
+                    .sectors
+                    .iter()
+                    .map(|sector| (sector.address, sector.size))
+                    .collect();
+                let expected_sectors: Vec<std::ops::Range<u64>> = (0..4)
+                    .map(|index| {
+                        let start = 0x0800_0000 + index * 0x4000;
+                        start..start + 0x4000
+                    })
+                    .chain(std::iter::once(0x0801_0000..0x0802_0000))
+                    .chain((0..7).map(|index| {
+                        let start = 0x0802_0000 + index * 0x20000;
+                        start..start + 0x20000
+                    }))
+                    .collect();
+                for expected in expected_sectors {
                     assert_eq!(
                         crate::services::flash_plan_service::erase_footprint(
-                            properties.address_range.clone(), &sectors, expected.start, expected.end,
-                        ).unwrap(),
+                            properties.address_range.clone(),
+                            &sectors,
+                            expected.start,
+                            expected.end,
+                        )
+                        .unwrap(),
                         (expected.start, expected.end, 1),
                     );
                 }

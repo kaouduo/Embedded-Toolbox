@@ -29,7 +29,6 @@ pub struct ProbeConnectionResult {
     pub target_name: String,
     pub core_types: Vec<String>,
     pub voltage: Option<f32>,
-    pub identity_verified: bool,
 }
 
 /// Snapshot of a persistent probe session. The session owns the probe
@@ -44,7 +43,6 @@ pub struct ProbeSessionInfo {
     pub core_types: Vec<String>,
     pub speed_khz: u32,
     pub voltage: Option<f32>,
-    pub identity_verified: bool,
     pub core_halted: bool,
 }
 
@@ -57,16 +55,4 @@ pub struct RamReadResult {
     pub bytes_read: usize,
     pub data: Vec<u8>,
     pub core_halted: bool,
-}
-
-/// Hardware evidence read from the attached target. The F407 ID is shared
-/// by several compatible F4 parts, so this is not an exact part-number check.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TargetIdentityResult {
-    pub device_id: String,
-    pub flash_kib: u16,
-    pub flash_compatible: bool,
-    pub exact_part_verified: bool,
-    pub expected_marking: String,
 }
