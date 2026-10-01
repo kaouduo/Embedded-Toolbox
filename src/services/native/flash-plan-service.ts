@@ -2,6 +2,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { invokeNative } from "./native-service";
 
 export interface BinaryFlashPlan {
+  format: "BIN" | "ELF" | "HEX";
+  segments: { startAddress: string; endAddressExclusive: string; byteCount: number; eraseStartAddress: string; eraseEndAddressExclusive: string }[];
   packId: string;
   packSha256: string;
   device: string;
@@ -23,7 +25,7 @@ export interface BinaryProgramResult {
 }
 
 export async function pickBinaryFirmware(): Promise<string | null> {
-  const path = await open({ multiple: false, filters: [{ name: "Binary firmware", extensions: ["bin"] }] });
+  const path = await open({ multiple: false, filters: [{ name: "Firmware", extensions: ["bin", "elf", "hex"] }] });
   return typeof path === "string" ? path : null;
 }
 

@@ -1195,6 +1195,8 @@ name = "embedded-toolbox"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "goblin",
+ "ihex",
  "log",
  "probe-rs",
  "roxmltree",

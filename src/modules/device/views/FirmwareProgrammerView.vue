@@ -26,6 +26,7 @@ const selectedId = ref("");
 const selectedDeviceName = ref("");
 const firmwarePath = ref("");
 const startAddress = ref("0x08000000");
+const isBin = computed(() => firmwarePath.value.toLowerCase().endsWith(".bin"));
 const flashPlan = ref<BinaryFlashPlan | null>(null);
 const planning = ref(false);
 const planError = ref("");
@@ -46,7 +47,7 @@ watch([selectedId, selectedDeviceName, firmwarePath, startAddress, selectedDevic
   planError.value = "";
   planning.value = false;
   programResult.value = null;
-  if (!selected.value || !selectedDevice.value || !selectedDeviceAnalysis.value?.ready || !firmwarePath.value || !startAddress.value) return;
+  if (!selected.value || !selectedDevice.value || !selectedDeviceAnalysis.value?.ready || !firmwarePath.value || (isBin.value && !startAddress.value)) return;
   const args = { packId: selected.value.id, packSha256: selected.value.sha256, device: selectedDevice.value.name, firmwarePath: firmwarePath.value, startAddress: startAddress.value };
   planning.value = true;
   planTimer = setTimeout(async () => {
@@ -232,8 +233,8 @@ onMounted(refreshProbes);
 
         <section class="panel firmware-panel">
           <div class="panel-heading"><h2>{{ t("programmer.firmwareTitle") }}</h2><span>{{ t("programmer.firmwareHint") }}</span></div>
-          <div class="file-picker"><NButton :disabled="busy" @click="chooseFirmware">{{ t("targetCatalog.chooseBin") }}</NButton><span :title="firmwarePath">{{ firmwarePath || t("targetCatalog.noFirmware") }}</span></div>
-          <div class="address-row"><label>{{ t("programmer.addressLabel") }}<NInput v-model:value="startAddress" :disabled="busy" :placeholder="t('targetCatalog.startAddress')" /></label></div>
+          <div class="file-picker"><NButton :disabled="busy" @click="chooseFirmware">{{ t("programmer.chooseFirmware") }}</NButton><span :title="firmwarePath">{{ firmwarePath || t("targetCatalog.noFirmware") }}</span></div>
+          <div v-if="isBin" class="address-row"><label>{{ t("programmer.addressLabel") }}<NInput v-model:value="startAddress" :disabled="busy" :placeholder="t('targetCatalog.startAddress')" /></label></div>
           <p v-if="planError" class="notice">{{ planError }}</p>
         </section>
 
@@ -241,7 +242,7 @@ onMounted(refreshProbes);
           <div class="panel-heading"><h2>{{ t("programmer.reviewTitle") }}</h2><span>{{ t("programmer.reviewHint") }}</span></div>
           <div v-if="!flashPlan" class="empty-plan">{{ planning ? t("programmer.planning") : t("programmer.noPlan") }}</div>
           <template v-else>
-            <div class="plan-grid"><div><small>{{ t("programmer.writeRange") }}</small><strong>{{ flashPlan.startAddress }} → {{ flashPlan.endAddressExclusive }}</strong></div><div><small>{{ t("programmer.eraseRange") }}</small><strong>{{ flashPlan.eraseStartAddress }} → {{ flashPlan.eraseEndAddressExclusive }}</strong></div><div><small>{{ t("programmer.firmwareSize") }}</small><strong>{{ flashPlan.byteCount }} B</strong></div><div><small>{{ t("programmer.sectors") }}</small><strong>{{ flashPlan.eraseSectorCount }}</strong></div></div>
+            <div class="plan-grid"><div><small>{{ t("programmer.writeRange") }}</small><strong v-for="segment in flashPlan.segments" :key="segment.startAddress">{{ segment.startAddress }} → {{ segment.endAddressExclusive }}<br /></strong></div><div><small>{{ t("programmer.eraseRange") }}</small><strong v-for="segment in flashPlan.segments" :key="segment.startAddress">{{ segment.eraseStartAddress }} → {{ segment.eraseEndAddressExclusive }}<br /></strong></div><div><small>{{ t("programmer.firmwareSize") }}</small><strong>{{ flashPlan.format }} · {{ flashPlan.byteCount }} B</strong></div><div><small>{{ t("programmer.sectors") }}</small><strong>{{ flashPlan.eraseSectorCount }}</strong></div></div>
             <details class="plan-details"><summary>{{ t("programmer.planDetails") }}</summary><p>{{ flashPlan.memoryRegion }} · {{ flashPlan.flashAlgorithm }}</p><p class="mono">SHA-256: {{ flashPlan.firmwareSha256 }}</p></details>
           </template>
           <div class="program-actions">

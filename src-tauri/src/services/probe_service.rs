@@ -296,8 +296,6 @@ impl ProbeSessionManager {
         if plan.firmware_sha256 != expected_sha256 {
             return Err(NativeError::conflict("Firmware changed since plan preview"));
         }
-        let start = u64::from_str_radix(&plan.start_address[2..], 16)
-            .map_err(|_| NativeError::internal("Invalid planned address"))?;
         let erase_start = u64::from_str_radix(&plan.erase_start_address[2..], 16)
             .map_err(|_| NativeError::internal("Invalid planned erase boundary"))?;
         let erase_end = u64::from_str_radix(&plan.erase_end_address_exclusive[2..], 16)
@@ -320,10 +318,28 @@ impl ProbeSessionManager {
                 "Firmware changed during programming preparation",
             ));
         }
+        let image = crate::services::firmware_image::parse(firmware, &bytes, start_address)?;
+        if image.format != plan.format || image.segments.len() != plan.segments.len() {
+            return Err(NativeError::conflict(
+                "Firmware layout changed since plan preview",
+            ));
+        }
         let mut loader = handle.session.target().flash_loader();
-        loader
-            .add_data(start, &bytes)
-            .map_err(|error| NativeError::io(format!("Prepare Flash data failed: {error}")))?;
+        for (segment, preview) in image.segments.iter().zip(&plan.segments) {
+            let end = segment.address + segment.data.len() as u64;
+            if format!("0x{:08X}", segment.address) != preview.start_address
+                || format!("0x{end:08X}") != preview.end_address_exclusive
+                || segment.address < identity.flash_range.start
+                || end > identity.flash_range.end
+            {
+                return Err(NativeError::conflict(
+                    "Firmware segment exceeds the validated Flash plan",
+                ));
+            }
+            loader
+                .add_data(segment.address, &segment.data)
+                .map_err(|error| NativeError::io(format!("Prepare Flash data failed: {error}")))?;
+        }
         let mut options = DownloadOptions::default();
         options.verify = true;
         options.keep_unwritten_bytes = true;
