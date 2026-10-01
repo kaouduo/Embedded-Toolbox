@@ -118,7 +118,7 @@ pub fn plan_binary(
     })
 }
 
-fn erase_footprint(
+pub(crate) fn erase_footprint(
     flash: Range<u64>,
     sectors: &[(u64, u64)],
     start: u64,
@@ -211,5 +211,32 @@ mod tests {
             erase_footprint(0x0800_0000..0x0810_0000, &sectors, 0x0800_F000, 0x0802_0100).unwrap(),
             (0x0800_C000, 0x0804_0000, 3)
         );
+    }
+
+    #[test]
+    fn full_erase_requires_exact_sector_coverage() {
+        let complete = [
+            (0, 16 * 1024),
+            (64 * 1024, 64 * 1024),
+            (128 * 1024, 128 * 1024),
+        ];
+        assert_eq!(
+            erase_footprint(
+                0x0800_0000..0x0810_0000,
+                &complete,
+                0x0800_0000,
+                0x0810_0000
+            )
+            .unwrap(),
+            (0x0800_0000, 0x0810_0000, 12),
+        );
+        let incomplete = [(0, 16 * 1024), (64 * 1024, 64 * 1024), (128 * 1024, 0)];
+        assert!(erase_footprint(
+            0x0800_0000..0x0810_0000,
+            &incomplete,
+            0x0800_0000,
+            0x0810_0000
+        )
+        .is_err());
     }
 }

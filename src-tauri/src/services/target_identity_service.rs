@@ -10,6 +10,7 @@ use crate::domain::probe::TargetIdentityResult;
 pub struct ValidatedIdentity {
     pub report: TargetIdentityResult,
     pub flash_range: Range<u64>,
+    pub erase_sectors: Vec<Range<u64>>,
 }
 
 pub fn inspect(session: &mut Session) -> Result<ValidatedIdentity, NativeError> {
@@ -20,6 +21,20 @@ pub fn inspect(session: &mut Session) -> Result<ValidatedIdentity, NativeError> 
     Err(NativeError::invalid_argument(format!(
         "No physical target identity provider for {target_name}"
     )))
+}
+
+pub(crate) fn stm32f407zg_erase_sectors() -> Vec<Range<u64>> {
+    (0..4)
+        .map(|index| {
+            let start = 0x0800_0000 + index * 0x4000;
+            start..start + 0x4000
+        })
+        .chain(std::iter::once(0x0801_0000..0x0802_0000))
+        .chain((0..7).map(|index| {
+            let start = 0x0802_0000 + index * 0x20000;
+            start..start + 0x20000
+        }))
+        .collect()
 }
 
 fn inspect_stm32f407zg(session: &mut Session) -> Result<ValidatedIdentity, NativeError> {
@@ -43,5 +58,6 @@ fn inspect_stm32f407zg(session: &mut Session) -> Result<ValidatedIdentity, Nativ
             expected_marking: "STM32F407ZGT6".to_owned(),
         },
         flash_range: 0x0800_0000..0x0810_0000,
+        erase_sectors: stm32f407zg_erase_sectors(),
     })
 }

@@ -46,3 +46,7 @@ export function programBinary(args: {
 }): Promise<BinaryProgramResult> {
   return invokeNative<BinaryProgramResult>("program_probe_binary", args);
 }
+
+export function eraseInternalFlash(sessionId: string): Promise<void> {
+  return invokeNative<void>("erase_probe_internal_flash", { sessionId, confirmed: true });
+}

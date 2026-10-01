@@ -85,6 +85,22 @@ pub async fn program_probe_binary(
 }
 
 #[tauri::command]
+pub async fn erase_probe_internal_flash(
+    app: AppHandle,
+    state: State<'_, Arc<ProbeSessionManager>>,
+    session_id: String,
+    confirmed: bool,
+) -> Result<(), NativeError> {
+    let root = catalog_root(&app)?;
+    let manager = Arc::clone(state.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        manager.erase_internal_flash(&root, &session_id, confirmed)
+    })
+    .await
+    .map_err(|_| NativeError::internal("Full Flash erase task failed"))?
+}
+
+#[tauri::command]
 pub async fn halt_probe_session(
     state: State<'_, Arc<ProbeSessionManager>>,
     session_id: String,

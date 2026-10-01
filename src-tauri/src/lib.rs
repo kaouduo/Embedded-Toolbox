@@ -41,6 +41,7 @@ pub fn run() {
             commands::probe_session::probe_session_status,
             commands::probe_session::inspect_probe_target,
             commands::probe_session::program_probe_binary,
+            commands::probe_session::erase_probe_internal_flash,
             commands::probe_session::halt_probe_session,
             commands::probe_session::resume_probe_session,
             commands::probe_session::read_probe_ram,

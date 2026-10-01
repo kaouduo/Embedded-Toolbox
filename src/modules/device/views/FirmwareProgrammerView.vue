@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { NButton, NCheckbox, NInput, NInputNumber, NSelect, NTag, useMessage } from "naive-ui";
+import { NButton, NInput, NInputNumber, NPopconfirm, NSelect, NTag, useMessage } from "naive-ui";
 import { useI18n } from "vue-i18n";
 import { TargetCatalogService, type PackAnalysis, type PackRecord } from "@/services/native/target-catalog-service";
 import { attachProbeSession, disconnectProbeSession, haltProbeSession, inspectProbeTarget, listSupportedProbes, probeSessionStatus, readProbeRam, resumeProbeSession, type ProbeRecord, type ProbeSessionInfo, type RamReadResult, type TargetIdentityResult } from "@/services/native/probe-service";
-import { pickBinaryFirmware, planBinaryFlash, programBinary, type BinaryFlashPlan, type BinaryProgramResult } from "@/services/native/flash-plan-service";
+import { eraseInternalFlash, pickBinaryFirmware, planBinaryFlash, programBinary, type BinaryFlashPlan, type BinaryProgramResult } from "@/services/native/flash-plan-service";
 
 const { t } = useI18n();
 const message = useMessage();
@@ -25,10 +25,13 @@ const busy = ref(false);
 const selectedId = ref("");
 const selectedDeviceName = ref("");
 const firmwarePath = ref("");
-const startAddress = ref("");
+const startAddress = ref("0x08000000");
 const flashPlan = ref<BinaryFlashPlan | null>(null);
+const planning = ref(false);
+const planError = ref("");
+let planTimer: ReturnType<typeof setTimeout> | undefined;
+let planGeneration = 0;
 const programResult = ref<BinaryProgramResult | null>(null);
-const confirmedPart = ref(false);
 const selected = computed(() => packs.value.find((pack) => pack.id === selectedId.value));
 const analysis = computed(() => analyses.value.find((item) => item.packId === selected.value?.id && item.sha256 === selected.value?.sha256));
 const selectedDevice = computed(() => selected.value?.devices.find((device) => device.name === selectedDeviceName.value));
@@ -36,25 +39,26 @@ const selectedDeviceAnalysis = computed(() => analysis.value?.targets.find((targ
 const packOptions = computed(() => packs.value.map((pack) => ({ label: `${pack.vendor} ${pack.name} · v${pack.version}`, value: pack.id })));
 const deviceOptions = computed(() => selected.value?.devices.filter((device) => analysis.value?.targets.some((target) => target.name === device.name && target.ready)).map((device) => ({ label: device.name, value: device.name })) ?? []);
 const probeOptions = computed(() => probes.value.flatMap((probe, index) => probe.kind === probeKind.value ? [{ label: `${probe.name}${probe.serialNumber ? ` · ${probe.serialNumber}` : ""}${probe.accessible ? "" : ` · ${t("targetCatalog.notAccessible")}`}`, value: index, disabled: !probe.accessible }] : []));
-const suggestedAddress = computed(() => selectedDevice.value?.algorithms.find((item) => item.default && item.start)?.start
-  ?? selectedDevice.value?.algorithms.find((item) => item.start)?.start ?? null);
-const nextStep = computed(() => {
-  if (!packs.value.length) return "nextImport";
-  if (!analysis.value) return "nextValidate";
-  if (!selectedDevice.value) return "nextTarget";
-  if (!selectedDeviceAnalysis.value?.ready) return "nextUnsupported";
-  if (!session.value) return "nextProbe";
-  if (!targetIdentity.value) return "nextIdentity";
-  if (!targetIdentity.value.flashCompatible) return "nextMismatch";
-  if (!firmwarePath.value || !startAddress.value) return "nextFirmware";
-  if (!flashPlan.value) return "nextPlan";
-  if (programResult.value?.verified) return "nextVerified";
-  return "nextProgram";
-});
-watch([selectedId, selectedDeviceName, firmwarePath, startAddress], () => {
+watch([selectedId, selectedDeviceName, firmwarePath, startAddress, selectedDeviceAnalysis], () => {
+  const generation = ++planGeneration;
+  if (planTimer) clearTimeout(planTimer);
   flashPlan.value = null;
+  planError.value = "";
+  planning.value = false;
   programResult.value = null;
-  confirmedPart.value = false;
+  if (!selected.value || !selectedDevice.value || !selectedDeviceAnalysis.value?.ready || !firmwarePath.value || !startAddress.value) return;
+  const args = { packId: selected.value.id, packSha256: selected.value.sha256, device: selectedDevice.value.name, firmwarePath: firmwarePath.value, startAddress: startAddress.value };
+  planning.value = true;
+  planTimer = setTimeout(async () => {
+    try {
+      const result = await planBinaryFlash(args);
+      if (generation === planGeneration && !unmounted) flashPlan.value = result;
+    } catch (error) {
+      if (generation === planGeneration && !unmounted) planError.value = error instanceof Error ? error.message : String(error);
+    } finally {
+      if (generation === planGeneration && !unmounted) planning.value = false;
+    }
+  }, 250);
 });
 async function refresh() {
   try {
@@ -108,7 +112,6 @@ async function disconnectSession() {
     await disconnectProbeSession(session.value.sessionId);
     session.value = null;
     targetIdentity.value = null;
-    confirmedPart.value = false;
     ramRead.value = null;
   } catch (error) {
     message.error(error instanceof Error ? error.message : String(error));
@@ -165,6 +168,8 @@ function formatRamBytes(result: RamReadResult): string {
 }
 onBeforeUnmount(() => {
   unmounted = true;
+  ++planGeneration;
+  if (planTimer) clearTimeout(planTimer);
   if (session.value) disconnectProbeSession(session.value.sessionId).catch(() => {});
 });
 async function chooseFirmware() {
@@ -173,22 +178,8 @@ async function chooseFirmware() {
     if (path) firmwarePath.value = path;
   } catch (error) { message.error(error instanceof Error ? error.message : String(error)); }
 }
-async function previewBinaryPlan() {
-  if (!selected.value || !selectedDevice.value) return;
-  busy.value = true;
-  try {
-    flashPlan.value = await planBinaryFlash({
-      packId: selected.value.id,
-      packSha256: selected.value.sha256,
-      device: selectedDevice.value.name,
-      firmwarePath: firmwarePath.value,
-      startAddress: startAddress.value,
-    });
-  } catch (error) { message.error(error instanceof Error ? error.message : String(error)); }
-  finally { busy.value = false; }
-}
 async function executeBinaryPlan() {
-  if (!session.value || !flashPlan.value || !targetIdentity.value?.flashCompatible || !confirmedPart.value || busy.value) return;
+  if (!session.value || !flashPlan.value || !targetIdentity.value?.flashCompatible || busy.value) return;
   busy.value = true;
   try {
     programResult.value = await programBinary({
@@ -196,13 +187,26 @@ async function executeBinaryPlan() {
       firmwarePath: firmwarePath.value,
       startAddress: flashPlan.value.startAddress,
       expectedSha256: flashPlan.value.firmwareSha256,
-      confirmedPart: confirmedPart.value,
+      confirmedPart: true,
     });
     session.value = await probeSessionStatus(session.value.sessionId);
     message.success(t("targetCatalog.programVerified"));
   } catch (error) {
     message.error(error instanceof Error ? error.message : String(error));
     try { session.value = await probeSessionStatus(session.value.sessionId); } catch { /* retain the error above */ }
+  } finally { busy.value = false; }
+}
+async function eraseAllFlash() {
+  if (!session.value || !targetIdentity.value?.flashCompatible || busy.value) return;
+  busy.value = true;
+  try {
+    await eraseInternalFlash(session.value.sessionId);
+    programResult.value = null;
+    session.value = await probeSessionStatus(session.value.sessionId);
+    message.success(t("programmer.eraseSuccess"));
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error));
+    try { session.value = await probeSessionStatus(session.value.sessionId); } catch { /* keep erase error */ }
   } finally { busy.value = false; }
 }
 onMounted(refreshProbes);
@@ -230,22 +234,23 @@ onMounted(refreshProbes);
         <section class="panel firmware-panel">
           <div class="panel-heading"><h2>{{ t("programmer.firmwareTitle") }}</h2><span>{{ t("programmer.firmwareHint") }}</span></div>
           <div class="file-picker"><NButton :disabled="busy" @click="chooseFirmware">{{ t("targetCatalog.chooseBin") }}</NButton><span :title="firmwarePath">{{ firmwarePath || t("targetCatalog.noFirmware") }}</span></div>
-          <div class="address-row"><label>{{ t("programmer.addressLabel") }}<NInput v-model:value="startAddress" :disabled="busy" :placeholder="t('targetCatalog.startAddress')" /></label><NButton v-if="suggestedAddress" :disabled="busy" @click="startAddress = suggestedAddress">{{ t("targetCatalog.useAddress") }} {{ suggestedAddress }}</NButton></div>
-          <p class="field-note">{{ t("programmer.addressHint") }}</p>
-          <NButton :disabled="!selectedDeviceAnalysis?.ready || !firmwarePath || !startAddress || busy" :loading="busy" @click="previewBinaryPlan">{{ t("targetCatalog.previewPlan") }}</NButton>
+          <div class="address-row"><label>{{ t("programmer.addressLabel") }}<NInput v-model:value="startAddress" :disabled="busy" :placeholder="t('targetCatalog.startAddress')" /></label></div>
+          <p v-if="planError" class="notice">{{ planError }}</p>
         </section>
 
         <section class="panel review-panel">
           <div class="panel-heading"><h2>{{ t("programmer.reviewTitle") }}</h2><span>{{ t("programmer.reviewHint") }}</span></div>
-          <div v-if="!flashPlan" class="empty-plan">{{ t("programmer.noPlan") }}</div>
+          <div v-if="!flashPlan" class="empty-plan">{{ planning ? t("programmer.planning") : t("programmer.noPlan") }}</div>
           <template v-else>
             <div class="plan-grid"><div><small>{{ t("programmer.writeRange") }}</small><strong>{{ flashPlan.startAddress }} → {{ flashPlan.endAddressExclusive }}</strong></div><div><small>{{ t("programmer.eraseRange") }}</small><strong>{{ flashPlan.eraseStartAddress }} → {{ flashPlan.eraseEndAddressExclusive }}</strong></div><div><small>{{ t("programmer.firmwareSize") }}</small><strong>{{ flashPlan.byteCount }} B</strong></div><div><small>{{ t("programmer.sectors") }}</small><strong>{{ flashPlan.eraseSectorCount }}</strong></div></div>
             <details class="plan-details"><summary>{{ t("programmer.planDetails") }}</summary><p>{{ flashPlan.memoryRegion }} · {{ flashPlan.flashAlgorithm }}</p><p class="mono">SHA-256: {{ flashPlan.firmwareSha256 }}</p></details>
           </template>
           <div class="program-actions">
-            <p>{{ t("targetCatalog.programNotice") }}</p>
-            <NCheckbox v-model:checked="confirmedPart" :disabled="!flashPlan || !targetIdentity?.flashCompatible">{{ t("targetCatalog.confirmPart", { part: targetIdentity?.expectedMarking ?? selectedDevice?.name ?? "MCU" }) }}</NCheckbox>
-            <div class="action-row"><NButton type="error" size="large" :disabled="!session || !flashPlan || !targetIdentity?.flashCompatible || !confirmedPart || busy" :loading="busy" @click="executeBinaryPlan">{{ t("targetCatalog.programAndVerify") }}</NButton><span class="action-hint">{{ t(`targetCatalog.${nextStep}`) }}</span></div>
+            <div class="action-row">
+              <NPopconfirm :positive-text="t('programmer.confirmProgram')" :negative-text="t('programmer.cancel')" @positive-click="executeBinaryPlan"><template #trigger><NButton type="primary" size="large" :disabled="!session || !flashPlan || !targetIdentity?.flashCompatible || busy" :loading="busy">{{ t("targetCatalog.programAndVerify") }}</NButton></template>{{ t("programmer.programConfirm", { part: targetIdentity?.expectedMarking ?? selectedDevice?.name ?? "MCU", start: flashPlan?.eraseStartAddress ?? "", end: flashPlan?.eraseEndAddressExclusive ?? "" }) }}</NPopconfirm>
+              <NPopconfirm :positive-text="t('programmer.confirmErase')" :negative-text="t('programmer.cancel')" @positive-click="eraseAllFlash"><template #trigger><NButton type="error" ghost :disabled="!session || !targetIdentity?.flashCompatible || busy">{{ t("programmer.fullErase") }}</NButton></template>{{ t("programmer.eraseConfirm", { part: targetIdentity?.expectedMarking ?? selectedDevice?.name ?? "MCU" }) }}</NPopconfirm>
+              <NButton disabled :title="t('programmer.optionsUnavailable')">{{ t("programmer.configurationOptions") }}</NButton>
+            </div>
             <p v-if="programResult?.verified" class="success">✓ {{ t("targetCatalog.programVerified") }} · {{ programResult.byteCount }} B · SHA-256: {{ programResult.firmwareSha256 }}</p>
           </div>
         </section>
