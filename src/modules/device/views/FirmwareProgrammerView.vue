@@ -28,11 +28,6 @@ const firmwarePath = ref("");
 const startAddress = ref("0x08000000");
 const isBin = computed(() => firmwarePath.value.toLowerCase().endsWith(".bin"));
 const flashPlan = ref<BinaryFlashPlan | null>(null);
-const canProgram = computed(() => {
-  if (!flashPlan.value || !targetIdentity.value?.programCompatible) return false;
-  const limit = Number(targetIdentity.value.programFlashEndAddressExclusive);
-  return flashPlan.value.segments.every((segment) => Number(segment.eraseEndAddressExclusive) <= limit);
-});
 const flashSizeDisplay = computed(() => {
   if (!targetIdentity.value) return "—";
   const size = targetIdentity.value.flashKib;
@@ -40,9 +35,6 @@ const flashSizeDisplay = computed(() => {
     ? `${size} KiB`
     : `${t("programmer.invalidFlashSize")} (0x${size.toString(16).toUpperCase()})`;
 });
-const programLimitKib = computed(() => targetIdentity.value
-  ? (Number(targetIdentity.value.programFlashEndAddressExclusive) - 0x08000000) / 1024
-  : 0);
 const planning = ref(false);
 const planError = ref("");
 let planTimer: ReturnType<typeof setTimeout> | undefined;
@@ -114,8 +106,11 @@ async function attachSession() {
       return;
     }
     session.value = attached;
-    try { targetIdentity.value = await inspectProbeTarget(attached.sessionId); }
-    catch (error) { targetIdentity.value = null; message.warning(error instanceof Error ? error.message : String(error)); }
+    targetIdentity.value = null;
+    if (selectedDeviceName.value.startsWith("STM32F407ZG")) {
+      try { targetIdentity.value = await inspectProbeTarget(attached.sessionId); }
+      catch { /* Optional diagnostic for full erase; programming does not depend on it. */ }
+    }
     programResult.value = null;
     ramRead.value = null;
   } catch (error) { if (!unmounted) message.error(error instanceof Error ? error.message : String(error)); }
@@ -139,13 +134,6 @@ async function haltSession() {
   busy.value = true;
   try { session.value = await haltProbeSession(session.value.sessionId); }
   catch (error) { message.error(error instanceof Error ? error.message : String(error)); }
-  finally { busy.value = false; }
-}
-async function inspectTarget() {
-  if (!session.value) return;
-  busy.value = true;
-  try { targetIdentity.value = await inspectProbeTarget(session.value.sessionId); }
-  catch (error) { targetIdentity.value = null; message.error(error instanceof Error ? error.message : String(error)); }
   finally { busy.value = false; }
 }
 async function resumeSession() {
@@ -195,7 +183,7 @@ async function chooseFirmware() {
   } catch (error) { message.error(error instanceof Error ? error.message : String(error)); }
 }
 async function executeBinaryPlan() {
-  if (!session.value || !flashPlan.value || !canProgram.value || busy.value) return;
+  if (!session.value || !flashPlan.value || busy.value) return;
   busy.value = true;
   try {
     programResult.value = await programBinary({
@@ -262,7 +250,7 @@ onMounted(refreshProbes);
           </template>
           <div class="program-actions">
             <div class="action-row">
-              <NButton type="primary" size="large" :disabled="!session || !canProgram || busy" :loading="busy" @click="executeBinaryPlan">{{ t("targetCatalog.programAndVerify") }}</NButton>
+              <NButton type="primary" size="large" :disabled="!session || !flashPlan || busy" :loading="busy" @click="executeBinaryPlan">{{ t("targetCatalog.programAndVerify") }}</NButton>
               <NPopconfirm :positive-text="t('programmer.confirmErase')" :negative-text="t('programmer.cancel')" @positive-click="eraseAllFlash"><template #trigger><NButton type="error" ghost :disabled="!session || !targetIdentity?.flashCompatible || busy">{{ t("programmer.fullErase") }}</NButton></template>{{ t("programmer.eraseConfirm", { part: targetIdentity?.expectedMarking ?? selectedDevice?.name ?? "MCU" }) }}</NPopconfirm>
               <NButton disabled :title="t('programmer.optionsUnavailable')">{{ t("programmer.configurationOptions") }}</NButton>
             </div>
@@ -289,11 +277,8 @@ onMounted(refreshProbes);
           <div class="panel-heading"><h2>{{ t("programmer.targetInfoTitle") }}</h2></div>
           <div class="info-row"><span>{{ t("programmer.mcuLabel") }}</span><strong>{{ selectedDevice?.name || "—" }}</strong></div>
           <div class="info-row"><span>{{ t("programmer.coreLabel") }}</span><strong>{{ selectedDevice?.core || "—" }}</strong></div>
-          <div class="info-row"><span>{{ t("programmer.deviceIdLabel") }}</span><strong>{{ targetIdentity?.deviceId || "—" }}</strong></div>
-          <div class="info-row"><span>{{ t("programmer.flashSizeLabel") }}</span><strong>{{ flashSizeDisplay }}</strong></div>
-          <div v-if="targetIdentity && !targetIdentity.programCompatible" class="identity-result"><NTag type="error">{{ t("programmer.identityMismatch") }}</NTag></div>
-          <div v-else-if="targetIdentity && !targetIdentity.flashCompatible" class="identity-result"><NTag type="warning">{{ t("programmer.capacityUnreliable") }}</NTag><small>{{ t("programmer.limitedProgramming", { kib: programLimitKib }) }}</small></div>
-          <div v-else-if="session" class="identity-result"><span>{{ t("programmer.identityUnavailable") }}</span><NButton size="small" :disabled="busy" @click="inspectTarget">{{ t("targetCatalog.inspectTarget") }}</NButton></div>
+          <div v-if="targetIdentity" class="info-row"><span>{{ t("programmer.deviceIdLabel") }}</span><strong>{{ targetIdentity.deviceId }}</strong></div>
+          <div v-if="targetIdentity" class="info-row"><span>{{ t("programmer.flashSizeLabel") }}</span><strong>{{ flashSizeDisplay }}</strong></div>
         </section>
 
         <details v-if="session" class="panel advanced"><summary>{{ t("programmer.advanced") }}</summary><div class="advanced-body"><p class="mono">{{ session.sessionId }} · {{ session.coreTypes.join(", ") }}</p><div class="diagnostic-actions"><NButton size="small" :disabled="session.coreHalted || busy" @click="haltSession">{{ t("targetCatalog.halt") }}</NButton><NButton size="small" :disabled="!session.coreHalted || busy" @click="resumeSession">{{ t("targetCatalog.resume") }}</NButton><NTag :type="session.coreHalted ? 'warning' : 'success'">{{ session.coreHalted ? t("targetCatalog.halted") : t("targetCatalog.running") }}</NTag></div><div class="diagnostic-actions"><NInput v-model:value="ramAddress" :placeholder="t('targetCatalog.ramAddress')" /><NInputNumber v-model:value="ramLength" :min="1" :max="4096" /><NButton size="small" :disabled="busy" @click="readRam">{{ t("targetCatalog.readRam") }}</NButton></div><p v-if="ramRead" class="mono">{{ ramRead.address }}: {{ formatRamBytes(ramRead) }}</p></div></details>

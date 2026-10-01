@@ -41,8 +41,6 @@ export interface TargetIdentityResult {
   deviceId: string;
   flashKib: number;
   flashCompatible: boolean;
-  programCompatible: boolean;
-  programFlashEndAddressExclusive: string;
   exactPartVerified: boolean;
   expectedMarking: string;
 }

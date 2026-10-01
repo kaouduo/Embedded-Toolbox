@@ -270,8 +270,8 @@ impl ProbeSessionManager {
         Ok(target_identity_service::inspect(&mut handle.session)?.report)
     }
 
-    /// Sector erase, program and read-back verification using Pack metadata
-    /// and an independent provider for physical target compatibility.
+    /// Sector erase, program and read-back verification using the selected
+    /// Pack target. Device-specific identity registers are not required.
     pub fn program_binary(
         &self,
         root: &Path,
@@ -296,27 +296,6 @@ impl ProbeSessionManager {
         if plan.firmware_sha256 != expected_sha256 {
             return Err(NativeError::conflict("Firmware changed since plan preview"));
         }
-        let erase_start = u64::from_str_radix(&plan.erase_start_address[2..], 16)
-            .map_err(|_| NativeError::internal("Invalid planned erase boundary"))?;
-        let erase_end = u64::from_str_radix(&plan.erase_end_address_exclusive[2..], 16)
-            .map_err(|_| NativeError::internal("Invalid planned erase boundary"))?;
-        let identity = target_identity_service::inspect(&mut handle.session)?;
-        if !identity.report.program_compatible {
-            return Err(NativeError::conflict(format!(
-                "Physical target is not compatible: device ID {}, Flash {} KiB",
-                identity.report.device_id, identity.report.flash_kib,
-            )));
-        }
-        let program_end = u64::from_str_radix(
-            &identity.report.program_flash_end_address_exclusive[2..],
-            16,
-        )
-        .map_err(|_| NativeError::internal("Invalid validated program range"))?;
-        if erase_start < identity.flash_range.start || erase_end > program_end {
-            return Err(NativeError::invalid_argument(
-                "Plan exceeds the validated programming range",
-            ));
-        }
         let bytes = fs::read(firmware)?;
         if format!("{:x}", Sha256::digest(&bytes)) != plan.firmware_sha256 {
             return Err(NativeError::conflict(
@@ -334,11 +313,9 @@ impl ProbeSessionManager {
             let end = segment.address + segment.data.len() as u64;
             if format!("0x{:08X}", segment.address) != preview.start_address
                 || format!("0x{end:08X}") != preview.end_address_exclusive
-                || segment.address < identity.flash_range.start
-                || end > program_end
             {
                 return Err(NativeError::conflict(
-                    "Firmware segment exceeds the validated Flash plan",
+                    "Firmware segment differs from the validated Flash plan",
                 ));
             }
             loader
