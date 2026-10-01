@@ -13,6 +13,11 @@ export default defineConfig({
     options: { typeAware: true, typeCheck: true },
   },
   plugins: lazyPlugins(() => [vue(), vueDevTools()]),
+  server: {
+    watch: {
+      ignored: ["**/src-tauri/target/**"],
+    },
+  },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
