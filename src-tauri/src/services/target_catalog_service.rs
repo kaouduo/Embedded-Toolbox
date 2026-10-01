@@ -690,6 +690,23 @@ mod tests {
             )
             .is_err());
             if pack.name == "STM32F4xx_DFP" {
+                let (registry, _) = load_validated_registry(&temp, &pack.id, &pack.sha256).unwrap();
+                let target = registry.get_target_by_name(device).unwrap();
+                let algorithms: Vec<_> = target.flash_algorithms.iter().filter(|algorithm| {
+                    algorithm.flash_properties.address_range.start <= 0x0800_0000
+                        && 0x0810_0000 <= algorithm.flash_properties.address_range.end
+                }).collect();
+                assert_eq!(algorithms.len(), 1);
+                let properties = &algorithms[0].flash_properties;
+                let sectors: Vec<_> = properties.sectors.iter().map(|sector| (sector.address, sector.size)).collect();
+                for expected in crate::services::target_identity_service::stm32f407zg_erase_sectors() {
+                    assert_eq!(
+                        crate::services::flash_plan_service::erase_footprint(
+                            properties.address_range.clone(), &sectors, expected.start, expected.end,
+                        ).unwrap(),
+                        (expected.start, expected.end, 1),
+                    );
+                }
                 if let Ok(real_bin) = std::env::var("CMSIS_BIN_TEST_PATH") {
                     let real_plan = crate::services::flash_plan_service::plan_binary(
                         &temp,
