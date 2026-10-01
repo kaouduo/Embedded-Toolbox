@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { NButton, NInput, NTag, useMessage } from "naive-ui";
+import { NButton, NInput, NInputNumber, NTag, useMessage } from "naive-ui";
 import { useI18n } from "vue-i18n";
 import { TargetCatalogService, type PackAnalysis, type PackRecord, type TargetCapability } from "@/services/native/target-catalog-service";
-import { listSupportedProbes, type ProbeRecord } from "@/services/native/probe-service";
+import { listSupportedProbes, testTargetConnection, type ProbeConnectionResult, type ProbeRecord } from "@/services/native/probe-service";
 import { pickBinaryFirmware, planBinaryFlash, type BinaryFlashPlan } from "@/services/native/flash-plan-service";
 
 const { t } = useI18n();
@@ -11,6 +11,10 @@ const message = useMessage();
 const packs = ref<PackRecord[]>([]);
 const analyses = ref<PackAnalysis[]>([]);
 const probes = ref<ProbeRecord[]>([]);
+const selectedProbeIndex = ref<number | null>(null);
+const selectedProbe = computed(() => selectedProbeIndex.value === null ? undefined : probes.value[selectedProbeIndex.value]);
+const speedKhz = ref(1800);
+const connectionResult = ref<ProbeConnectionResult | null>(null);
 const query = ref("");
 const busy = ref(false);
 const selectedId = ref("");
@@ -23,6 +27,7 @@ const analysis = computed(() => analyses.value.find((item) => item.packId === se
 const selectedDevice = computed(() => selected.value?.devices.find((device) => device.name === selectedDeviceName.value));
 const selectedDeviceAnalysis = computed(() => analysis.value?.targets.find((target) => target.name === selectedDeviceName.value));
 watch([selectedId, selectedDeviceName, firmwarePath, startAddress], () => { flashPlan.value = null; });
+watch([selectedId, selectedDeviceName, selectedProbeIndex], () => { connectionResult.value = null; });
 const devices = computed(() => selected.value?.devices.filter((device) =>
   `${device.name} ${device.family}`.toLowerCase().includes(query.value.toLowerCase()),
 ) ?? []);
@@ -62,8 +67,22 @@ async function importPack() {
 }
 onMounted(refresh);
 async function refreshProbes() {
-  try { probes.value = await listSupportedProbes(); }
+  try { probes.value = await listSupportedProbes(); selectedProbeIndex.value = null; }
   catch (error) { message.error(error instanceof Error ? error.message : String(error)); }
+}
+async function testConnection() {
+  if (!selected.value || !selectedDevice.value || !selectedProbe.value || speedKhz.value === null) return;
+  busy.value = true;
+  try {
+    connectionResult.value = await testTargetConnection({
+      probe: selectedProbe.value,
+      packId: selected.value.id,
+      sha256: selected.value.sha256,
+      device: selectedDevice.value.name,
+      speedKhz: speedKhz.value,
+    });
+  } catch (error) { message.error(error instanceof Error ? error.message : String(error)); }
+  finally { busy.value = false; }
 }
 async function chooseFirmware() {
   try {
@@ -97,10 +116,10 @@ onMounted(refreshProbes);
     <section class="target-catalog__probes">
       <div class="target-catalog__probe-heading"><h2>{{ t("targetCatalog.probes") }}</h2><NButton size="small" @click="refreshProbes">{{ t("targetCatalog.refresh") }}</NButton></div>
       <p v-if="!probes.length">{{ t("targetCatalog.noProbes") }}</p>
-      <p v-for="probe in probes" :key="`${probe.kind}:${probe.vendorId}:${probe.productId}:${probe.serialNumber}:${probe.interface}`">
+      <button v-for="(probe, index) in probes" :key="`${probe.kind}:${probe.vendorId}:${probe.productId}:${probe.serialNumber}:${probe.interface}`" class="target-catalog__probe" :class="{ selected: selectedProbeIndex === index }" @click="selectedProbeIndex = index">
         {{ probe.kind }} · {{ probe.name }} · {{ probe.vendorId.toString(16).padStart(4, "0") }}:{{ probe.productId.toString(16).padStart(4, "0") }} · {{ probe.serialNumber || t("targetCatalog.noSerial") }}
         <NTag v-if="!probe.accessible" type="warning">{{ t("targetCatalog.notAccessible") }}</NTag>
-      </p>
+      </button>
     </section>
     <div class="target-catalog__body">
       <aside class="target-catalog__packs">
@@ -129,6 +148,11 @@ onMounted(refreshProbes);
           <h4>{{ t("targetCatalog.algorithms") }}</h4>
           <p v-for="algorithm in selectedDevice.algorithms" :key="algorithm.file">{{ algorithm.file }} · {{ algorithm.start || "?" }} / {{ algorithm.size || "?" }}</p>
           <div v-if="selectedDeviceAnalysis?.ready" class="target-catalog__plan">
+            <h4>{{ t("targetCatalog.connectionTest") }}</h4>
+            <p>{{ t("targetCatalog.connectionTestNote") }}</p>
+            <NInputNumber v-model:value="speedKhz" :min="100" :max="10000" :step="100" />
+            <NButton :disabled="!selectedProbe?.accessible" :loading="busy" @click="testConnection">{{ t("targetCatalog.testConnection") }}</NButton>
+            <p v-if="connectionResult">{{ connectionResult.probeKind }} · {{ connectionResult.targetName }} · {{ connectionResult.coreTypes.join(", ") }} · {{ connectionResult.voltage ?? "?" }} V · {{ t("targetCatalog.identityUnverified") }}</p>
             <h4>{{ t("targetCatalog.binaryPlan") }}</h4>
             <NButton size="small" @click="chooseFirmware">{{ t("targetCatalog.chooseBin") }}</NButton>
             <p>{{ firmwarePath || t("targetCatalog.noFirmware") }}</p>
@@ -156,6 +180,8 @@ onMounted(refreshProbes);
 .target-catalog__probe-heading { display: flex; justify-content: space-between; align-items: center; }
 .target-catalog__probe-heading h2 { margin: 0; }
 .target-catalog__probes p { margin: 6px 0; }
+.target-catalog__probe { display: block; width: 100%; margin: 6px 0; padding: 6px; text-align: left; border: 1px solid #8885; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+.target-catalog__probe.selected { border-color: #18a058; }
 .target-catalog__body { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); gap: 20px; }
 .target-catalog__packs, .target-catalog__devices { min-width: 0; }
 .target-catalog__pack { display: flex; flex-direction: column; width: 100%; padding: 12px; margin-bottom: 8px; text-align: left; border: 1px solid #8885; border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }

@@ -33,6 +33,7 @@ pub fn run() {
             commands::target_catalog::list_target_analyses,
             commands::target_catalog::analyze_target_pack,
             commands::probe::list_supported_probes,
+            commands::probe::test_target_connection,
             commands::flash_plan::plan_binary_flash,
         ])
         .run(tauri::generate_context!())

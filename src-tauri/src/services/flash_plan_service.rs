@@ -1,12 +1,12 @@
 use std::fs;
 use std::path::Path;
 
-use probe_rs::config::{ChipFamily, MemoryRegion, Registry};
+use probe_rs::config::MemoryRegion;
 use sha2::{Digest, Sha256};
 
 use crate::domain::error::NativeError;
 use crate::domain::flash_plan::BinaryFlashPlan;
-use crate::domain::target_catalog::PackAnalysis;
+use crate::services::target_catalog_service;
 
 const MAX_FIRMWARE_BYTES: u64 = 512 * 1024 * 1024;
 
@@ -32,26 +32,8 @@ pub fn plan_binary(
         .checked_add(size)
         .ok_or_else(|| NativeError::invalid_argument("Firmware address range overflows"))?;
 
-    let safe_id: String = pack_id
-        .chars()
-        .map(|character| {
-            if character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_') {
-                character
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    let dir = root.join(format!("{}-{}", safe_id, &pack_sha256[..12]));
-    let conversion = dir.join("conversion-target-gen-0.32.0");
-    let analysis: PackAnalysis =
-        serde_json::from_slice(&fs::read(conversion.join("analysis.json"))?)
-            .map_err(|error| NativeError::io(format!("Invalid target analysis: {error}")))?;
-    if analysis.pack_id != pack_id || analysis.sha256 != pack_sha256 {
-        return Err(NativeError::invalid_argument(
-            "Pack analysis identity mismatch",
-        ));
-    }
+    let (registry, analysis) =
+        target_catalog_service::load_validated_registry(root, pack_id, pack_sha256)?;
     if !analysis
         .targets
         .iter()
@@ -60,21 +42,6 @@ pub fn plan_binary(
         return Err(NativeError::invalid_argument(
             "Device target definition is not validated",
         ));
-    }
-    let converted = fs::read(conversion.join("target-families.bin"))?;
-    if format!("{:x}", Sha256::digest(&converted)) != analysis.target_definition_sha256 {
-        return Err(NativeError::invalid_argument(
-            "Converted target hash does not match analysis",
-        ));
-    }
-    let (families, _): (Vec<ChipFamily>, usize) =
-        bincode::serde::decode_from_slice(&converted, bincode::config::standard())
-            .map_err(|error| NativeError::io(format!("Invalid converted targets: {error}")))?;
-    let mut registry = Registry::new();
-    for family in families {
-        registry.add_target_family(family).map_err(|error| {
-            NativeError::invalid_argument(format!("Converted target invalid: {error}"))
-        })?;
     }
     let target = registry.get_target_by_name(device).map_err(|error| {
         NativeError::invalid_argument(format!("Unknown converted target: {error}"))

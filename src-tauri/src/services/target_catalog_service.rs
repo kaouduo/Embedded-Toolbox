@@ -183,6 +183,45 @@ pub fn analyze_pack(root: &Path, pack_id: &str, sha256: &str) -> Result<PackAnal
     Ok(analysis)
 }
 
+pub fn load_validated_registry(
+    root: &Path,
+    pack_id: &str,
+    sha256: &str,
+) -> Result<(probe_rs::config::Registry, PackAnalysis), NativeError> {
+    if sha256.len() != 64 || !sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(NativeError::invalid_argument("Invalid Pack SHA-256"));
+    }
+    let dir = root.join(format!("{}-{}", safe_component(pack_id), &sha256[..12]));
+    let conversion = dir.join(CONVERSION_DIR);
+    let analysis: PackAnalysis =
+        serde_json::from_slice(&fs::read(conversion.join("analysis.json"))?)
+            .map_err(|error| NativeError::io(format!("Invalid target analysis: {error}")))?;
+    if analysis.pack_id != pack_id
+        || analysis.sha256 != sha256
+        || analysis.converter_version != CONVERTER_VERSION
+    {
+        return Err(NativeError::invalid_argument(
+            "Pack analysis identity mismatch",
+        ));
+    }
+    let converted = fs::read(conversion.join("target-families.bin"))?;
+    if format!("{:x}", Sha256::digest(&converted)) != analysis.target_definition_sha256 {
+        return Err(NativeError::invalid_argument(
+            "Converted target hash does not match analysis",
+        ));
+    }
+    let (families, _): (Vec<probe_rs::config::ChipFamily>, usize) =
+        bincode::serde::decode_from_slice(&converted, bincode::config::standard())
+            .map_err(|error| NativeError::io(format!("Invalid converted targets: {error}")))?;
+    let mut registry = probe_rs::config::Registry::new();
+    for family in families {
+        registry.add_target_family(family).map_err(|error| {
+            NativeError::invalid_argument(format!("Converted target invalid: {error}"))
+        })?;
+    }
+    Ok((registry, analysis))
+}
+
 pub fn import_pack(root: &Path, source: &Path) -> Result<PackRecord, NativeError> {
     let metadata = fs::metadata(source)?;
     if metadata.len() > MAX_PACK_BYTES {
