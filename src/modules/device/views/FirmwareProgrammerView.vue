@@ -28,6 +28,21 @@ const firmwarePath = ref("");
 const startAddress = ref("0x08000000");
 const isBin = computed(() => firmwarePath.value.toLowerCase().endsWith(".bin"));
 const flashPlan = ref<BinaryFlashPlan | null>(null);
+const canProgram = computed(() => {
+  if (!flashPlan.value || !targetIdentity.value?.programCompatible) return false;
+  const limit = Number(targetIdentity.value.programFlashEndAddressExclusive);
+  return flashPlan.value.segments.every((segment) => Number(segment.eraseEndAddressExclusive) <= limit);
+});
+const flashSizeDisplay = computed(() => {
+  if (!targetIdentity.value) return "—";
+  const size = targetIdentity.value.flashKib;
+  return [128, 256, 512, 1024].includes(size)
+    ? `${size} KiB`
+    : `${t("programmer.invalidFlashSize")} (0x${size.toString(16).toUpperCase()})`;
+});
+const programLimitKib = computed(() => targetIdentity.value
+  ? (Number(targetIdentity.value.programFlashEndAddressExclusive) - 0x08000000) / 1024
+  : 0);
 const planning = ref(false);
 const planError = ref("");
 let planTimer: ReturnType<typeof setTimeout> | undefined;
@@ -180,7 +195,7 @@ async function chooseFirmware() {
   } catch (error) { message.error(error instanceof Error ? error.message : String(error)); }
 }
 async function executeBinaryPlan() {
-  if (!session.value || !flashPlan.value || !targetIdentity.value?.flashCompatible || busy.value) return;
+  if (!session.value || !flashPlan.value || !canProgram.value || busy.value) return;
   busy.value = true;
   try {
     programResult.value = await programBinary({
@@ -247,7 +262,7 @@ onMounted(refreshProbes);
           </template>
           <div class="program-actions">
             <div class="action-row">
-              <NButton type="primary" size="large" :disabled="!session || !flashPlan || !targetIdentity?.flashCompatible || busy" :loading="busy" @click="executeBinaryPlan">{{ t("targetCatalog.programAndVerify") }}</NButton>
+              <NButton type="primary" size="large" :disabled="!session || !canProgram || busy" :loading="busy" @click="executeBinaryPlan">{{ t("targetCatalog.programAndVerify") }}</NButton>
               <NPopconfirm :positive-text="t('programmer.confirmErase')" :negative-text="t('programmer.cancel')" @positive-click="eraseAllFlash"><template #trigger><NButton type="error" ghost :disabled="!session || !targetIdentity?.flashCompatible || busy">{{ t("programmer.fullErase") }}</NButton></template>{{ t("programmer.eraseConfirm", { part: targetIdentity?.expectedMarking ?? selectedDevice?.name ?? "MCU" }) }}</NPopconfirm>
               <NButton disabled :title="t('programmer.optionsUnavailable')">{{ t("programmer.configurationOptions") }}</NButton>
             </div>
@@ -275,8 +290,9 @@ onMounted(refreshProbes);
           <div class="info-row"><span>{{ t("programmer.mcuLabel") }}</span><strong>{{ selectedDevice?.name || "—" }}</strong></div>
           <div class="info-row"><span>{{ t("programmer.coreLabel") }}</span><strong>{{ selectedDevice?.core || "—" }}</strong></div>
           <div class="info-row"><span>{{ t("programmer.deviceIdLabel") }}</span><strong>{{ targetIdentity?.deviceId || "—" }}</strong></div>
-          <div class="info-row"><span>{{ t("programmer.flashSizeLabel") }}</span><strong>{{ targetIdentity ? `${targetIdentity.flashKib} KiB` : "—" }}</strong></div>
-          <div v-if="targetIdentity" class="identity-result"><NTag :type="targetIdentity.flashCompatible ? 'success' : 'error'">{{ targetIdentity.flashCompatible ? t("programmer.identityMatch") : t("programmer.identityMismatch") }}</NTag><small>{{ t("targetCatalog.exactPartUnverified") }}</small></div>
+          <div class="info-row"><span>{{ t("programmer.flashSizeLabel") }}</span><strong>{{ flashSizeDisplay }}</strong></div>
+          <div v-if="targetIdentity && !targetIdentity.programCompatible" class="identity-result"><NTag type="error">{{ t("programmer.identityMismatch") }}</NTag></div>
+          <div v-else-if="targetIdentity && !targetIdentity.flashCompatible" class="identity-result"><NTag type="warning">{{ t("programmer.capacityUnreliable") }}</NTag><small>{{ t("programmer.limitedProgramming", { kib: programLimitKib }) }}</small></div>
           <div v-else-if="session" class="identity-result"><span>{{ t("programmer.identityUnavailable") }}</span><NButton size="small" :disabled="busy" @click="inspectTarget">{{ t("targetCatalog.inspectTarget") }}</NButton></div>
         </section>
 

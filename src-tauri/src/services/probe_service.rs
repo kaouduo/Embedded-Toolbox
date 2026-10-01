@@ -301,15 +301,20 @@ impl ProbeSessionManager {
         let erase_end = u64::from_str_radix(&plan.erase_end_address_exclusive[2..], 16)
             .map_err(|_| NativeError::internal("Invalid planned erase boundary"))?;
         let identity = target_identity_service::inspect(&mut handle.session)?;
-        if !identity.report.flash_compatible {
+        if !identity.report.program_compatible {
             return Err(NativeError::conflict(format!(
                 "Physical target is not compatible: device ID {}, Flash {} KiB",
                 identity.report.device_id, identity.report.flash_kib,
             )));
         }
-        if erase_start < identity.flash_range.start || erase_end > identity.flash_range.end {
+        let program_end = u64::from_str_radix(
+            &identity.report.program_flash_end_address_exclusive[2..],
+            16,
+        )
+        .map_err(|_| NativeError::internal("Invalid validated program range"))?;
+        if erase_start < identity.flash_range.start || erase_end > program_end {
             return Err(NativeError::invalid_argument(
-                "Plan exceeds physically validated internal Flash",
+                "Plan exceeds the validated programming range",
             ));
         }
         let bytes = fs::read(firmware)?;
@@ -330,7 +335,7 @@ impl ProbeSessionManager {
             if format!("0x{:08X}", segment.address) != preview.start_address
                 || format!("0x{end:08X}") != preview.end_address_exclusive
                 || segment.address < identity.flash_range.start
-                || end > identity.flash_range.end
+                || end > program_end
             {
                 return Err(NativeError::conflict(
                     "Firmware segment exceeds the validated Flash plan",

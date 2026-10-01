@@ -53,11 +53,22 @@ fn inspect_stm32f407zg(session: &mut Session) -> Result<ValidatedIdentity, Nativ
         .read_word_32(0x1FFF_7A20)
         .map_err(|error| NativeError::io(format!("Read Flash size failed: {error}")))?;
     let flash_kib = flash_size_from_aligned_word(size_word);
+    let device_matches = (idcode & 0x0FFF) == 0x413;
+    let capacity_verified = flash_kib == 1024;
+    // The 0x413 family has a common 512 KiB sector layout. If the size
+    // register is unreliable, only that common lower range may be programmed.
+    let program_kib = match flash_kib {
+        128 | 256 | 512 | 1024 => flash_kib,
+        _ => 512,
+    };
+    let program_end = 0x0800_0000 + u64::from(program_kib) * 1024;
     Ok(ValidatedIdentity {
         report: TargetIdentityResult {
             device_id: format!("0x{:03X}", idcode & 0x0FFF),
             flash_kib,
-            flash_compatible: (idcode & 0x0FFF) == 0x413 && flash_kib == 1024,
+            flash_compatible: device_matches && capacity_verified,
+            program_compatible: device_matches,
+            program_flash_end_address_exclusive: format!("0x{program_end:08X}"),
             exact_part_verified: false,
             expected_marking: "STM32F407ZGT6".to_owned(),
         },

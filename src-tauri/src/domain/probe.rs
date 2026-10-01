@@ -67,6 +67,8 @@ pub struct TargetIdentityResult {
     pub device_id: String,
     pub flash_kib: u16,
     pub flash_compatible: bool,
+    pub program_compatible: bool,
+    pub program_flash_end_address_exclusive: String,
     pub exact_part_verified: bool,
     pub expected_marking: String,
 }
