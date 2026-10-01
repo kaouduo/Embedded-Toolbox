@@ -66,7 +66,6 @@ pub async fn program_probe_binary(
     firmware_path: String,
     start_address: String,
     expected_sha256: String,
-    confirmed_part: bool,
 ) -> Result<BinaryProgramResult, NativeError> {
     let root = catalog_root(&app)?;
     let manager = Arc::clone(state.inner());
@@ -77,7 +76,6 @@ pub async fn program_probe_binary(
             std::path::Path::new(&firmware_path),
             &start_address,
             &expected_sha256,
-            confirmed_part,
         )
     })
     .await

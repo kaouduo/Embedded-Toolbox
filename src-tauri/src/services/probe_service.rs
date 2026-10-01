@@ -279,7 +279,6 @@ impl ProbeSessionManager {
         firmware: &Path,
         start_address: &str,
         expected_sha256: &str,
-        confirmed_part: bool,
     ) -> Result<BinaryProgramResult, NativeError> {
         let mut sessions = self.lock_sessions()?;
         let handle = sessions
@@ -304,12 +303,6 @@ impl ProbeSessionManager {
         let erase_end = u64::from_str_radix(&plan.erase_end_address_exclusive[2..], 16)
             .map_err(|_| NativeError::internal("Invalid planned erase boundary"))?;
         let identity = target_identity_service::inspect(&mut handle.session)?;
-        if !confirmed_part {
-            return Err(NativeError::invalid_argument(format!(
-                "Confirm the physical {} marking before programming",
-                identity.report.expected_marking,
-            )));
-        }
         if !identity.report.flash_compatible {
             return Err(NativeError::conflict(format!(
                 "Physical target is not compatible: device ID {}, Flash {} KiB",

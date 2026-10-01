@@ -187,7 +187,6 @@ async function executeBinaryPlan() {
       firmwarePath: firmwarePath.value,
       startAddress: flashPlan.value.startAddress,
       expectedSha256: flashPlan.value.firmwareSha256,
-      confirmedPart: true,
     });
     session.value = await probeSessionStatus(session.value.sessionId);
     message.success(t("targetCatalog.programVerified"));
@@ -247,7 +246,7 @@ onMounted(refreshProbes);
           </template>
           <div class="program-actions">
             <div class="action-row">
-              <NPopconfirm :positive-text="t('programmer.confirmProgram')" :negative-text="t('programmer.cancel')" @positive-click="executeBinaryPlan"><template #trigger><NButton type="primary" size="large" :disabled="!session || !flashPlan || !targetIdentity?.flashCompatible || busy" :loading="busy">{{ t("targetCatalog.programAndVerify") }}</NButton></template>{{ t("programmer.programConfirm", { part: targetIdentity?.expectedMarking ?? selectedDevice?.name ?? "MCU", start: flashPlan?.eraseStartAddress ?? "", end: flashPlan?.eraseEndAddressExclusive ?? "" }) }}</NPopconfirm>
+              <NButton type="primary" size="large" :disabled="!session || !flashPlan || !targetIdentity?.flashCompatible || busy" :loading="busy" @click="executeBinaryPlan">{{ t("targetCatalog.programAndVerify") }}</NButton>
               <NPopconfirm :positive-text="t('programmer.confirmErase')" :negative-text="t('programmer.cancel')" @positive-click="eraseAllFlash"><template #trigger><NButton type="error" ghost :disabled="!session || !targetIdentity?.flashCompatible || busy">{{ t("programmer.fullErase") }}</NButton></template>{{ t("programmer.eraseConfirm", { part: targetIdentity?.expectedMarking ?? selectedDevice?.name ?? "MCU" }) }}</NPopconfirm>
               <NButton disabled :title="t('programmer.optionsUnavailable')">{{ t("programmer.configurationOptions") }}</NButton>
             </div>

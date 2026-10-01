@@ -42,7 +42,6 @@ export function programBinary(args: {
   firmwarePath: string;
   startAddress: string;
   expectedSha256: string;
-  confirmedPart: boolean;
 }): Promise<BinaryProgramResult> {
   return invokeNative<BinaryProgramResult>("program_probe_binary", args);
 }
