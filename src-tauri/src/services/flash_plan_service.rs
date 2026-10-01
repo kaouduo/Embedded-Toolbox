@@ -1,4 +1,5 @@
 use std::fs;
+use std::ops::Range;
 use std::path::Path;
 
 use probe_rs::config::MemoryRegion;
@@ -86,6 +87,14 @@ pub fn plan_binary(
             "BIN range must have exactly one Flash algorithm; choose a different target or address",
         ));
     }
+    let properties = &algorithms[0].flash_properties;
+    let sectors: Vec<_> = properties
+        .sectors
+        .iter()
+        .map(|sector| (sector.address, sector.size))
+        .collect();
+    let (erase_start, erase_end, erase_sector_count) =
+        erase_footprint(properties.address_range.clone(), &sectors, start, end)?;
     let bytes = fs::read(firmware)?;
     if bytes.len() as u64 != size {
         return Err(NativeError::io("Firmware file changed during planning"));
@@ -103,7 +112,63 @@ pub fn plan_binary(
             .clone()
             .unwrap_or_else(|| "unnamed Flash".to_owned()),
         flash_algorithm: algorithms[0].name.clone(),
+        erase_start_address: format!("0x{erase_start:08X}"),
+        erase_end_address_exclusive: format!("0x{erase_end:08X}"),
+        erase_sector_count,
     })
+}
+
+fn erase_footprint(
+    flash: Range<u64>,
+    sectors: &[(u64, u64)],
+    start: u64,
+    end: u64,
+) -> Result<(u64, u64, usize), NativeError> {
+    let mut address = start;
+    let mut first = None;
+    let mut last = start;
+    let mut count = 0;
+    while address < end {
+        let relative = address - flash.start;
+        let (group_offset, size) = sectors
+            .iter()
+            .copied()
+            .filter(|(offset, _)| *offset <= relative)
+            .max_by_key(|(offset, _)| *offset)
+            .ok_or_else(|| NativeError::invalid_argument("Flash sector layout is incomplete"))?;
+        if size == 0 {
+            return Err(NativeError::invalid_argument("Flash sector size is zero"));
+        }
+        let group_start = flash
+            .start
+            .checked_add(group_offset)
+            .ok_or_else(|| NativeError::invalid_argument("Flash sector address overflows"))?;
+        let next_group = sectors
+            .iter()
+            .filter(|(offset, _)| *offset > group_offset)
+            .map(|(offset, _)| flash.start.saturating_add(*offset))
+            .min()
+            .unwrap_or(flash.end)
+            .min(flash.end);
+        let sector_start = group_start + ((address - group_start) / size) * size;
+        let sector_end = sector_start
+            .checked_add(size)
+            .ok_or_else(|| NativeError::invalid_argument("Flash sector address overflows"))?;
+        if sector_end > next_group || sector_end > flash.end {
+            return Err(NativeError::invalid_argument(
+                "Flash sector crosses its declared region",
+            ));
+        }
+        first.get_or_insert(sector_start);
+        last = sector_end;
+        address = sector_end;
+        count += 1;
+    }
+    Ok((
+        first.ok_or_else(|| NativeError::invalid_argument("No Flash sectors selected"))?,
+        last,
+        count,
+    ))
 }
 
 fn parse_address(input: &str) -> Result<u64, NativeError> {
@@ -133,5 +198,18 @@ mod tests {
         assert!(parse_address("").is_err());
         assert_eq!(parse_address("0x08000000").unwrap(), 0x08000000);
         assert_eq!(parse_address("134217728").unwrap(), 0x08000000);
+    }
+
+    #[test]
+    fn previews_sectors_across_size_boundaries() {
+        let sectors = [
+            (0, 16 * 1024),
+            (64 * 1024, 64 * 1024),
+            (128 * 1024, 128 * 1024),
+        ];
+        assert_eq!(
+            erase_footprint(0x0800_0000..0x0810_0000, &sectors, 0x0800_F000, 0x0802_0100).unwrap(),
+            (0x0800_C000, 0x0804_0000, 3)
+        );
     }
 }

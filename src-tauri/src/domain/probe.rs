@@ -31,3 +31,41 @@ pub struct ProbeConnectionResult {
     pub voltage: Option<f32>,
     pub identity_verified: bool,
 }
+
+/// Snapshot of a persistent probe session. The session owns the probe
+/// exclusively until it is explicitly disconnected.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProbeSessionInfo {
+    pub session_id: String,
+    pub probe_kind: String,
+    pub probe_serial: Option<String>,
+    pub target_name: String,
+    pub core_types: Vec<String>,
+    pub speed_khz: u32,
+    pub voltage: Option<f32>,
+    pub identity_verified: bool,
+    pub core_halted: bool,
+}
+
+/// One-shot target RAM read used for bring-up diagnostics. Reading halts
+/// the core briefly; the previous run state is not restored automatically.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RamReadResult {
+    pub address: String,
+    pub bytes_read: usize,
+    pub data: Vec<u8>,
+    pub core_halted: bool,
+}
+
+/// Hardware evidence read from the attached target. The F407 ID is shared
+/// by several compatible F4 parts, so this is not an exact part-number check.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TargetIdentityResult {
+    pub device_id: String,
+    pub flash_kib: u16,
+    pub flash_compatible: bool,
+    pub exact_part_verified: bool,
+}

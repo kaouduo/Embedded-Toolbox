@@ -5,6 +5,7 @@ mod services;
 use std::sync::Arc;
 
 use services::connection_service::ConnectionManager;
+use services::probe_service::ProbeSessionManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -12,6 +13,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .manage(Arc::new(ConnectionManager::new()))
+        .manage(Arc::new(ProbeSessionManager::new()))
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -34,6 +36,14 @@ pub fn run() {
             commands::target_catalog::analyze_target_pack,
             commands::probe::list_supported_probes,
             commands::probe::test_target_connection,
+            commands::probe_session::attach_probe_session,
+            commands::probe_session::probe_session_status,
+            commands::probe_session::inspect_probe_target,
+            commands::probe_session::program_probe_binary,
+            commands::probe_session::halt_probe_session,
+            commands::probe_session::resume_probe_session,
+            commands::probe_session::read_probe_ram,
+            commands::probe_session::disconnect_probe_session,
             commands::flash_plan::plan_binary_flash,
         ])
         .run(tauri::generate_context!())

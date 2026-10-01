@@ -85,11 +85,12 @@ const routes: RouteRecordRaw[] = [
     meta: { titleKey: "tools.colorPalette" },
   },
   {
-    path: "/device/manager",
-    name: "device-manager",
-    component: () => import("@/modules/device/views/DeviceManagerView.vue"),
-    meta: { titleKey: "tools.deviceManager" },
+    path: "/device/programmer",
+    name: "firmware-programmer",
+    component: () => import("@/modules/device/views/FirmwareProgrammerView.vue"),
+    meta: { titleKey: "tools.firmwareProgrammer" },
   },
+  { path: "/device/manager", redirect: "/device/programmer" },
   {
     path: "/:pathMatch(.*)*",
     redirect: "/",

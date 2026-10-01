@@ -616,6 +616,7 @@ mod tests {
             "N32H47x_DFP" => Some("N32H473CC"),
             "STM32F1xx_DFP" => Some("STM32F100C4"),
             "STM32G4xx_DFP" => Some("STM32G411CCTx"),
+            "STM32F4xx_DFP" => Some("STM32F407ZGTx"),
             _ => None,
         };
         if let Some(device) = plan_device {
@@ -640,6 +641,21 @@ mod tests {
                 ""
             )
             .is_err());
+            if pack.name == "STM32F4xx_DFP" {
+                if let Ok(real_bin) = std::env::var("CMSIS_BIN_TEST_PATH") {
+                    let real_plan = crate::services::flash_plan_service::plan_binary(
+                        &temp,
+                        &pack.id,
+                        &pack.sha256,
+                        device,
+                        Path::new(&real_bin),
+                        "0x08000000",
+                    )
+                    .unwrap();
+                    assert_eq!(real_plan.erase_start_address, "0x08000000");
+                    assert_eq!(real_plan.erase_end_address_exclusive, "0x08020000");
+                }
+            }
         }
         fs::remove_dir_all(temp).unwrap();
     }
