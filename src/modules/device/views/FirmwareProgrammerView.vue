@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { NButton, NCheckbox, NInput, NInputNumber, NSelect, NTag, useMessage } from "naive-ui";
 import { useI18n } from "vue-i18n";
-import { RouterLink } from "vue-router";
 import { TargetCatalogService, type PackAnalysis, type PackRecord } from "@/services/native/target-catalog-service";
 import { attachProbeSession, disconnectProbeSession, haltProbeSession, inspectProbeTarget, listSupportedProbes, probeSessionStatus, readProbeRam, resumeProbeSession, type ProbeRecord, type ProbeSessionInfo, type RamReadResult, type TargetIdentityResult } from "@/services/native/probe-service";
 import { pickBinaryFirmware, planBinaryFlash, programBinary, type BinaryFlashPlan, type BinaryProgramResult } from "@/services/native/flash-plan-service";
@@ -12,8 +11,9 @@ const message = useMessage();
 const packs = ref<PackRecord[]>([]);
 const analyses = ref<PackAnalysis[]>([]);
 const probes = ref<ProbeRecord[]>([]);
+const probeKind = ref<"ST-Link" | "CMSIS-DAP">("ST-Link");
 const selectedProbeIndex = ref<number | null>(null);
-const selectedProbe = computed(() => selectedProbeIndex.value === null ? undefined : probes.value[selectedProbeIndex.value]);
+const selectedProbe = computed(() => selectedProbeIndex.value === null ? undefined : probes.value[selectedProbeIndex.value]?.kind === probeKind.value ? probes.value[selectedProbeIndex.value] : undefined);
 const speedKhz = ref(1800);
 const session = ref<ProbeSessionInfo | null>(null);
 const targetIdentity = ref<TargetIdentityResult | null>(null);
@@ -35,7 +35,7 @@ const selectedDevice = computed(() => selected.value?.devices.find((device) => d
 const selectedDeviceAnalysis = computed(() => analysis.value?.targets.find((target) => target.name === selectedDeviceName.value));
 const packOptions = computed(() => packs.value.map((pack) => ({ label: `${pack.vendor} ${pack.name} · v${pack.version}`, value: pack.id })));
 const deviceOptions = computed(() => selected.value?.devices.filter((device) => analysis.value?.targets.some((target) => target.name === device.name && target.ready)).map((device) => ({ label: device.name, value: device.name })) ?? []);
-const probeOptions = computed(() => probes.value.map((probe, index) => ({ label: `${probe.kind} · ${probe.name}${probe.serialNumber ? ` · ${probe.serialNumber}` : ""}`, value: index, disabled: !probe.accessible })));
+const probeOptions = computed(() => probes.value.flatMap((probe, index) => probe.kind === probeKind.value ? [{ label: `${probe.name}${probe.serialNumber ? ` · ${probe.serialNumber}` : ""}${probe.accessible ? "" : ` · ${t("targetCatalog.notAccessible")}`}`, value: index, disabled: !probe.accessible }] : []));
 const suggestedAddress = computed(() => selectedDevice.value?.algorithms.find((item) => item.default && item.start)?.start
   ?? selectedDevice.value?.algorithms.find((item) => item.start)?.start ?? null);
 const nextStep = computed(() => {
@@ -43,12 +43,12 @@ const nextStep = computed(() => {
   if (!analysis.value) return "nextValidate";
   if (!selectedDevice.value) return "nextTarget";
   if (!selectedDeviceAnalysis.value?.ready) return "nextUnsupported";
-  if (!firmwarePath.value || !startAddress.value) return "nextFirmware";
-  if (!flashPlan.value) return "nextPlan";
-  if (programResult.value?.verified) return "nextVerified";
   if (!session.value) return "nextProbe";
   if (!targetIdentity.value) return "nextIdentity";
   if (!targetIdentity.value.flashCompatible) return "nextMismatch";
+  if (!firmwarePath.value || !startAddress.value) return "nextFirmware";
+  if (!flashPlan.value) return "nextPlan";
+  if (programResult.value?.verified) return "nextVerified";
   return "nextProgram";
 });
 watch([selectedId, selectedDeviceName, firmwarePath, startAddress], () => {
@@ -65,7 +65,17 @@ async function refresh() {
 }
 onMounted(refresh);
 async function refreshProbes() {
-  try { probes.value = await listSupportedProbes(); selectedProbeIndex.value = null; }
+  try {
+    const current = selectedProbe.value;
+    probes.value = await listSupportedProbes();
+    if (!probes.value.some((probe) => probe.kind === probeKind.value && probe.accessible)) {
+      const firstKind = probes.value.find((probe) => probe.accessible)?.kind;
+      if (firstKind === "ST-Link" || firstKind === "CMSIS-DAP") probeKind.value = firstKind;
+    }
+    const previousIndex = current ? probes.value.findIndex((probe) => probe.kind === current.kind && probe.vendorId === current.vendorId && probe.productId === current.productId && probe.serialNumber === current.serialNumber && probe.interface === current.interface) : -1;
+    selectedProbeIndex.value = previousIndex >= 0 ? previousIndex : probes.value.findIndex((probe) => probe.kind === probeKind.value && probe.accessible);
+    if (selectedProbeIndex.value < 0) selectedProbeIndex.value = null;
+  }
   catch (error) { message.error(error instanceof Error ? error.message : String(error)); }
 }
 async function attachSession() {
@@ -200,51 +210,77 @@ onMounted(refreshProbes);
 
 <template>
   <div class="programmer">
-    <header class="page-header"><div><h1>{{ t("tools.firmwareProgrammer") }}</h1><p>{{ t("programmer.description") }}</p></div><RouterLink to="/device/packs">{{ t("tools.packManager") }} →</RouterLink></header>
-    <div class="layout">
-      <main class="steps">
-        <section class="card">
-          <div class="step-title"><span class="number">1</span><div><h2>{{ t("programmer.targetTitle") }}</h2><p>{{ t("programmer.targetHint") }}</p></div></div>
-          <div v-if="!packs.length" class="empty">{{ t("programmer.noPack") }} <RouterLink to="/device/packs">{{ t("targetCatalog.import") }} →</RouterLink></div>
-          <div v-else class="fields">
-            <label>{{ t("programmer.packLabel") }}<NSelect v-model:value="selectedId" :options="packOptions" :disabled="!!session || busy" /></label>
+    <header class="page-header">
+      <div><h1>{{ t("tools.firmwareProgrammer") }}</h1><p>{{ t("programmer.workbenchHint") }}</p></div>
+      <NTag round :type="session ? 'success' : 'default'">{{ session ? t("programmer.connected") : t("programmer.disconnected") }}</NTag>
+    </header>
+    <div class="workspace">
+      <main class="main-column">
+        <section class="panel">
+          <div class="panel-heading"><h2>{{ t("programmer.targetTitle") }}</h2><span>{{ t("programmer.targetHint") }}</span></div>
+          <div class="target-fields">
+            <label>{{ t("programmer.packLabel") }}<NSelect v-model:value="selectedId" :options="packOptions" :disabled="!!session || busy" :placeholder="t('programmer.selectPack')" /></label>
             <label>{{ t("programmer.mcuLabel") }}<NSelect v-model:value="selectedDeviceName" :options="deviceOptions" filterable clearable :disabled="!analysis || !!session || busy" :placeholder="t('programmer.selectMcu')" /></label>
-            <p v-if="!analysis" class="hint">{{ t("programmer.packNeedsValidation") }} <RouterLink to="/device/packs">{{ t("tools.packManager") }} →</RouterLink></p>
-            <p v-if="selectedDeviceAnalysis?.reason" class="hint">{{ selectedDeviceAnalysis.reason }}</p>
+          </div>
+          <p v-if="!packs.length" class="notice">{{ t("programmer.noPack") }}</p>
+          <p v-else-if="!analysis" class="notice">{{ t("programmer.packNeedsValidation") }}</p>
+          <p v-else-if="selectedDeviceAnalysis?.reason" class="notice">{{ selectedDeviceAnalysis.reason }}</p>
+        </section>
+
+        <section class="panel firmware-panel">
+          <div class="panel-heading"><h2>{{ t("programmer.firmwareTitle") }}</h2><span>{{ t("programmer.firmwareHint") }}</span></div>
+          <div class="file-picker"><NButton :disabled="busy" @click="chooseFirmware">{{ t("targetCatalog.chooseBin") }}</NButton><span :title="firmwarePath">{{ firmwarePath || t("targetCatalog.noFirmware") }}</span></div>
+          <div class="address-row"><label>{{ t("programmer.addressLabel") }}<NInput v-model:value="startAddress" :disabled="busy" :placeholder="t('targetCatalog.startAddress')" /></label><NButton v-if="suggestedAddress" :disabled="busy" @click="startAddress = suggestedAddress">{{ t("targetCatalog.useAddress") }} {{ suggestedAddress }}</NButton></div>
+          <p class="field-note">{{ t("programmer.addressHint") }}</p>
+          <NButton :disabled="!selectedDeviceAnalysis?.ready || !firmwarePath || !startAddress || busy" :loading="busy" @click="previewBinaryPlan">{{ t("targetCatalog.previewPlan") }}</NButton>
+        </section>
+
+        <section class="panel review-panel">
+          <div class="panel-heading"><h2>{{ t("programmer.reviewTitle") }}</h2><span>{{ t("programmer.reviewHint") }}</span></div>
+          <div v-if="!flashPlan" class="empty-plan">{{ t("programmer.noPlan") }}</div>
+          <template v-else>
+            <div class="plan-grid"><div><small>{{ t("programmer.writeRange") }}</small><strong>{{ flashPlan.startAddress }} → {{ flashPlan.endAddressExclusive }}</strong></div><div><small>{{ t("programmer.eraseRange") }}</small><strong>{{ flashPlan.eraseStartAddress }} → {{ flashPlan.eraseEndAddressExclusive }}</strong></div><div><small>{{ t("programmer.firmwareSize") }}</small><strong>{{ flashPlan.byteCount }} B</strong></div><div><small>{{ t("programmer.sectors") }}</small><strong>{{ flashPlan.eraseSectorCount }}</strong></div></div>
+            <details class="plan-details"><summary>{{ t("programmer.planDetails") }}</summary><p>{{ flashPlan.memoryRegion }} · {{ flashPlan.flashAlgorithm }}</p><p class="mono">SHA-256: {{ flashPlan.firmwareSha256 }}</p></details>
+          </template>
+          <div class="program-actions">
+            <p>{{ t("targetCatalog.programNotice") }}</p>
+            <NCheckbox v-model:checked="confirmedPart" :disabled="!flashPlan || !targetIdentity?.flashCompatible">{{ t("targetCatalog.confirmPart", { part: targetIdentity?.expectedMarking ?? selectedDevice?.name ?? "MCU" }) }}</NCheckbox>
+            <div class="action-row"><NButton type="error" size="large" :disabled="!session || !flashPlan || !targetIdentity?.flashCompatible || !confirmedPart || busy" :loading="busy" @click="executeBinaryPlan">{{ t("targetCatalog.programAndVerify") }}</NButton><span class="action-hint">{{ t(`targetCatalog.${nextStep}`) }}</span></div>
+            <p v-if="programResult?.verified" class="success">✓ {{ t("targetCatalog.programVerified") }} · {{ programResult.byteCount }} B · SHA-256: {{ programResult.firmwareSha256 }}</p>
           </div>
         </section>
-        <section class="card" :class="{ muted: !selectedDeviceAnalysis?.ready }">
-          <div class="step-title"><span class="number">2</span><div><h2>{{ t("programmer.firmwareTitle") }}</h2><p>{{ t("programmer.firmwareHint") }}</p></div></div>
-          <div class="fields">
-            <div class="file-row"><NButton :disabled="!selectedDeviceAnalysis?.ready || busy" @click="chooseFirmware">{{ t("targetCatalog.chooseBin") }}</NButton><span class="file-path">{{ firmwarePath || t("targetCatalog.noFirmware") }}</span></div>
-            <label>{{ t("programmer.addressLabel") }}<div class="address-row"><NInput v-model:value="startAddress" :disabled="!selectedDeviceAnalysis?.ready || busy" :placeholder="t('targetCatalog.startAddress')" /><NButton v-if="suggestedAddress" :disabled="!selectedDeviceAnalysis?.ready || busy" @click="startAddress = suggestedAddress">{{ t("targetCatalog.useAddress") }} {{ suggestedAddress }}</NButton></div></label>
-            <p class="hint">{{ t("programmer.addressHint") }}</p>
-            <NButton :disabled="!selectedDeviceAnalysis?.ready || !firmwarePath || !startAddress || busy" :loading="busy" @click="previewBinaryPlan">{{ t("targetCatalog.previewPlan") }}</NButton>
-            <div v-if="flashPlan" class="plan"><div class="plan-grid"><div><small>{{ t("programmer.writeRange") }}</small><strong>{{ flashPlan.startAddress }} → {{ flashPlan.endAddressExclusive }}</strong></div><div><small>{{ t("programmer.eraseRange") }}</small><strong>{{ flashPlan.eraseStartAddress }} → {{ flashPlan.eraseEndAddressExclusive }}</strong></div><div><small>{{ t("programmer.firmwareSize") }}</small><strong>{{ flashPlan.byteCount }} B</strong></div><div><small>{{ t("programmer.sectors") }}</small><strong>{{ flashPlan.eraseSectorCount }}</strong></div></div><details><summary>{{ t("programmer.planDetails") }}</summary><p>{{ flashPlan.memoryRegion }} · {{ flashPlan.flashAlgorithm }}</p><p class="hash">SHA-256: {{ flashPlan.firmwareSha256 }}</p></details></div>
-          </div>
-        </section>
-        <section class="card" :class="{ muted: !flashPlan }">
-          <div class="step-title"><span class="number">3</span><div><h2>{{ t("programmer.probeTitle") }}</h2><p>{{ t("programmer.probeHint") }}</p></div></div>
-          <div class="fields">
-            <div class="probe-row"><NSelect v-model:value="selectedProbeIndex" :options="probeOptions" :disabled="!!session || busy || !flashPlan" :placeholder="t('programmer.selectProbe')" /><NButton :disabled="!!session || busy" @click="refreshProbes">{{ t("targetCatalog.refresh") }}</NButton></div>
-            <p v-if="!probes.length" class="hint">{{ t("targetCatalog.noProbes") }}</p>
-            <div v-if="!session" class="probe-row"><label>{{ t("programmer.speedLabel") }}<NInputNumber v-model:value="speedKhz" :min="100" :max="10000" :step="100" :disabled="!flashPlan || busy" /></label><NButton type="primary" :disabled="!flashPlan || !selectedProbe?.accessible || busy" :loading="busy" @click="attachSession">{{ t("targetCatalog.connect") }}</NButton></div>
-            <div v-else class="session-row"><div><NTag type="success">{{ t("programmer.connected") }}</NTag><span>{{ session.probeKind }} · {{ session.targetName }} · {{ session.voltage ?? "?" }} V</span></div><NButton size="small" :disabled="busy" @click="disconnectSession">{{ t("targetCatalog.disconnect") }}</NButton></div>
-            <p v-if="session && !targetIdentity" class="hint">{{ t("programmer.identityUnavailable") }} <NButton text :disabled="busy" @click="inspectTarget">{{ t("targetCatalog.inspectTarget") }}</NButton></p>
-            <div v-if="targetIdentity" class="identity" :class="{ error: !targetIdentity.flashCompatible }"><NTag :type="targetIdentity.flashCompatible ? 'success' : 'error'">{{ targetIdentity.flashCompatible ? t("programmer.identityMatch") : t("programmer.identityMismatch") }}</NTag><span>{{ t("targetCatalog.identityResult", { id: targetIdentity.deviceId, size: targetIdentity.flashKib }) }}</span></div>
-          </div>
-        </section>
-        <section class="card final-card" :class="{ muted: !targetIdentity?.flashCompatible || !flashPlan }">
-          <div class="step-title"><span class="number">4</span><div><h2>{{ t("programmer.programTitle") }}</h2><p>{{ t("programmer.programHint") }}</p></div></div>
-          <div class="fields"><p class="hint">{{ t("targetCatalog.programNotice") }}</p><NCheckbox v-model:checked="confirmedPart" :disabled="!targetIdentity?.flashCompatible || !flashPlan">{{ t("targetCatalog.confirmPart", { part: targetIdentity?.expectedMarking ?? selectedDevice?.name ?? "MCU" }) }}</NCheckbox><NButton type="error" size="large" :disabled="!flashPlan || !targetIdentity?.flashCompatible || !confirmedPart || busy" :loading="busy" @click="executeBinaryPlan">{{ t("targetCatalog.programAndVerify") }}</NButton><div v-if="programResult?.verified" class="success">✓ {{ t("targetCatalog.programVerified") }} · {{ programResult.byteCount }} B</div></div>
-        </section>
-        <details v-if="session" class="advanced"><summary>{{ t("programmer.advanced") }}</summary><div class="advanced-body"><p>{{ session.sessionId }} · {{ session.coreTypes.join(", ") }} · {{ session.speedKhz }} kHz</p><div class="actions"><NButton size="small" :disabled="session.coreHalted || busy" @click="haltSession">{{ t("targetCatalog.halt") }}</NButton><NButton size="small" :disabled="!session.coreHalted || busy" @click="resumeSession">{{ t("targetCatalog.resume") }}</NButton><NTag :type="session.coreHalted ? 'warning' : 'success'">{{ session.coreHalted ? t("targetCatalog.halted") : t("targetCatalog.running") }}</NTag></div><div class="actions"><NInput v-model:value="ramAddress" :placeholder="t('targetCatalog.ramAddress')" style="max-width:180px" /><NInputNumber v-model:value="ramLength" :min="1" :max="4096" style="max-width:120px" /><NButton size="small" :disabled="busy" @click="readRam">{{ t("targetCatalog.readRam") }}</NButton></div><p v-if="ramRead" class="hash">{{ ramRead.address }}: {{ formatRamBytes(ramRead) }}</p></div></details>
       </main>
-      <aside class="status"><h2>{{ t("programmer.statusTitle") }}</h2><p>{{ t(`targetCatalog.${nextStep}`) }}</p><div class="status-list"><div><span>1</span>{{ selectedDevice?.name || t("programmer.targetTitle") }}</div><div><span>2</span>{{ firmwarePath ? firmwarePath.split(/[\\/]/).pop() : t("programmer.firmwareTitle") }}</div><div><span>3</span>{{ session ? session.probeKind : t("programmer.probeTitle") }}</div><div><span>4</span>{{ programResult?.verified ? t("targetCatalog.programVerified") : t("programmer.programTitle") }}</div></div></aside>
+
+      <aside class="side-column">
+        <section class="panel connection-panel">
+          <div class="panel-heading"><h2>{{ t("programmer.connectionTitle") }}</h2></div>
+          <label>{{ t("programmer.interfaceLabel") }}<NSelect v-model:value="probeKind" :options="[{ label: 'ST-Link', value: 'ST-Link' }, { label: 'CMSIS-DAP', value: 'CMSIS-DAP' }]" :disabled="!!session || busy" /></label>
+          <label>{{ t("programmer.selectProbe") }}<div class="probe-picker"><NSelect v-model:value="selectedProbeIndex" :options="probeOptions" :disabled="!!session || busy" :placeholder="t('programmer.selectProbe')" /><NButton :disabled="!!session || busy" @click="refreshProbes">↻</NButton></div></label>
+          <p v-if="!probes.length" class="field-note">{{ t("targetCatalog.noProbes") }}</p>
+          <p v-else-if="!probeOptions.length" class="field-note">{{ t("programmer.noProbeOfType", { kind: probeKind }) }}</p>
+          <label>{{ t("programmer.speedLabel") }}<NInputNumber v-model:value="speedKhz" :min="100" :max="10000" :step="100" :disabled="!!session || busy" /></label>
+          <NButton v-if="!session" type="primary" block size="large" :disabled="!selectedDeviceAnalysis?.ready || !selectedProbe?.accessible || busy" :loading="busy" @click="attachSession">{{ t("targetCatalog.connect") }}</NButton>
+          <NButton v-else block size="large" :disabled="busy" @click="disconnectSession">{{ t("targetCatalog.disconnect") }}</NButton>
+          <p v-if="!selectedDeviceAnalysis?.ready && !session" class="field-note">{{ t("programmer.connectNeedsTarget") }}</p>
+          <div v-if="session" class="connection-summary"><NTag type="success">{{ t("programmer.connected") }}</NTag><span>{{ session.probeKind }} · {{ session.speedKhz }} kHz</span><span>{{ session.voltage ?? "?" }} V</span></div>
+        </section>
+
+        <section class="panel target-panel">
+          <div class="panel-heading"><h2>{{ t("programmer.targetInfoTitle") }}</h2></div>
+          <div class="info-row"><span>{{ t("programmer.mcuLabel") }}</span><strong>{{ selectedDevice?.name || "—" }}</strong></div>
+          <div class="info-row"><span>{{ t("programmer.coreLabel") }}</span><strong>{{ selectedDevice?.core || "—" }}</strong></div>
+          <div class="info-row"><span>{{ t("programmer.deviceIdLabel") }}</span><strong>{{ targetIdentity?.deviceId || "—" }}</strong></div>
+          <div class="info-row"><span>{{ t("programmer.flashSizeLabel") }}</span><strong>{{ targetIdentity ? `${targetIdentity.flashKib} KiB` : "—" }}</strong></div>
+          <div v-if="targetIdentity" class="identity-result"><NTag :type="targetIdentity.flashCompatible ? 'success' : 'error'">{{ targetIdentity.flashCompatible ? t("programmer.identityMatch") : t("programmer.identityMismatch") }}</NTag><small>{{ t("targetCatalog.exactPartUnverified") }}</small></div>
+          <div v-else-if="session" class="identity-result"><span>{{ t("programmer.identityUnavailable") }}</span><NButton size="small" :disabled="busy" @click="inspectTarget">{{ t("targetCatalog.inspectTarget") }}</NButton></div>
+        </section>
+
+        <details v-if="session" class="panel advanced"><summary>{{ t("programmer.advanced") }}</summary><div class="advanced-body"><p class="mono">{{ session.sessionId }} · {{ session.coreTypes.join(", ") }}</p><div class="diagnostic-actions"><NButton size="small" :disabled="session.coreHalted || busy" @click="haltSession">{{ t("targetCatalog.halt") }}</NButton><NButton size="small" :disabled="!session.coreHalted || busy" @click="resumeSession">{{ t("targetCatalog.resume") }}</NButton><NTag :type="session.coreHalted ? 'warning' : 'success'">{{ session.coreHalted ? t("targetCatalog.halted") : t("targetCatalog.running") }}</NTag></div><div class="diagnostic-actions"><NInput v-model:value="ramAddress" :placeholder="t('targetCatalog.ramAddress')" /><NInputNumber v-model:value="ramLength" :min="1" :max="4096" /><NButton size="small" :disabled="busy" @click="readRam">{{ t("targetCatalog.readRam") }}</NButton></div><p v-if="ramRead" class="mono">{{ ramRead.address }}: {{ formatRamBytes(ramRead) }}</p></div></details>
+      </aside>
     </div>
   </div>
 </template>
 
 <style scoped>
-.programmer{max-width:1320px;margin:auto;padding:28px}.page-header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:24px}.page-header h1{margin:0}.page-header p{margin:5px 0 0;opacity:.7}.layout{display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:22px;align-items:start}.steps{display:grid;gap:16px}.card,.status,.advanced{border:1px solid #8884;border-radius:12px;background:#88808;padding:20px;min-width:0}.card.muted{opacity:.7}.step-title{display:flex;gap:14px;align-items:flex-start;margin-bottom:18px}.step-title h2,.status h2{font-size:18px;margin:0}.step-title p{margin:4px 0 0;opacity:.65}.number{display:grid;place-items:center;background:#18a058;color:#fff;border-radius:50%;width:28px;height:28px;flex:none;font-weight:700}.fields{display:grid;gap:14px}.fields label{display:grid;gap:6px;font-weight:600}.fields label :deep(.n-base-selection),.fields label :deep(.n-input){font-weight:400}.file-row,.address-row,.probe-row,.session-row,.session-row>div,.actions,.identity{display:flex;align-items:center;gap:10px;min-width:0}.address-row>:first-child,.probe-row>:first-child{flex:1;min-width:0}.file-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.75}.hint{font-size:13px;opacity:.7;margin:0}.empty{padding:16px;background:#8881;border-radius:8px}.plan{padding:15px;border-radius:8px;background:#18a05812;border:1px solid #18a05855}.plan-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.plan-grid div{display:grid;gap:4px}.plan-grid small{opacity:.65}.plan-grid strong{font-size:13px;overflow-wrap:anywhere}.plan details{margin-top:12px}.hash{font:12px monospace;overflow-wrap:anywhere}.session-row{justify-content:space-between}.session-row>div{flex-wrap:wrap}.identity{flex-wrap:wrap}.identity.error{color:#d03050}.final-card .fields>:deep(.n-button){justify-self:start;min-width:200px}.success{color:#18a058;font-weight:700}.advanced{padding:0}.advanced summary{padding:16px 20px;cursor:pointer}.advanced-body{padding:0 20px 20px;display:grid;gap:12px}.actions{flex-wrap:wrap}.status{position:sticky;top:20px}.status p{line-height:1.5}.status-list{display:grid;gap:14px;margin-top:20px}.status-list div{display:flex;align-items:center;gap:10px;overflow-wrap:anywhere}.status-list span{width:24px;height:24px;flex:none;border-radius:50%;display:grid;place-items:center;background:#8883}@media(max-width:900px){.layout{grid-template-columns:1fr}.status{position:static;order:-1}}@media(max-width:600px){.programmer{padding:16px}.page-header{align-items:flex-start}.plan-grid{grid-template-columns:1fr}.address-row,.probe-row{flex-wrap:wrap}}
+.programmer{padding:24px;max-width:1500px;margin:auto}.page-header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}.page-header h1{margin:0;font-size:24px}.page-header p{margin:4px 0 0;opacity:.65}.workspace{display:grid;grid-template-columns:minmax(0,1fr) 318px;gap:16px;align-items:start}.main-column,.side-column{display:grid;gap:16px;min-width:0}.panel{border:1px solid #8884;border-radius:10px;padding:18px;background:#88806;min-width:0}.panel-heading{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:16px}.panel-heading h2{margin:0;font-size:17px}.panel-heading span{opacity:.6;font-size:12px}.target-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.panel label{display:grid;gap:6px;font-weight:600;font-size:13px}.panel label :deep(.n-base-selection),.panel label :deep(.n-input){font-weight:400}.notice{padding:10px 12px;margin:12px 0 0;border-radius:6px;background:#e6a23c1a;color:#9a6700;font-size:13px}.file-picker,.address-row,.probe-picker,.action-row,.connection-summary,.identity-result,.diagnostic-actions{display:flex;align-items:center;gap:10px;min-width:0}.file-picker span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.75}.address-row{margin-top:16px;align-items:end}.address-row label,.probe-picker :deep(.n-select){flex:1;min-width:0}.address-row button{white-space:nowrap}.field-note{font-size:12px;opacity:.6;margin:9px 0 14px}.empty-plan{min-height:80px;display:grid;place-items:center;border:1px dashed #8885;border-radius:7px;opacity:.55}.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px;border-radius:7px;background:#18a05810}.plan-grid div{display:grid;gap:4px}.plan-grid small{opacity:.6}.plan-grid strong{font-size:13px;overflow-wrap:anywhere}.plan-details{margin:12px 0;font-size:12px}.mono{font:12px monospace;overflow-wrap:anywhere}.program-actions{border-top:1px solid #8883;margin-top:18px;padding-top:14px;display:grid;gap:12px}.program-actions p{margin:0;font-size:12px;opacity:.75}.action-row{flex-wrap:wrap}.action-hint{font-size:12px;opacity:.7}.program-actions .success{color:#18a058;font-weight:700;opacity:1;overflow-wrap:anywhere}.connection-panel{display:grid;gap:14px}.connection-panel .panel-heading{margin:0}.connection-panel .field-note{margin:0}.probe-picker{width:100%}.connection-summary{flex-wrap:wrap;font-size:12px}.target-panel .info-row{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #8882;padding:8px 0;font-size:12px}.info-row span{opacity:.65}.info-row strong{text-align:right;overflow-wrap:anywhere}.identity-result{margin-top:15px;align-items:flex-start;flex-direction:column}.identity-result small{opacity:.65}.advanced{padding:0}.advanced summary{padding:16px 18px;cursor:pointer;font-weight:600}.advanced-body{padding:0 18px 18px;display:grid;gap:12px}.advanced-body p{margin:0}.diagnostic-actions{flex-wrap:wrap}.diagnostic-actions :deep(.n-input){max-width:150px}.diagnostic-actions :deep(.n-input-number){max-width:95px}@media(max-width:1050px){.workspace{grid-template-columns:minmax(0,1fr) 270px}.target-fields{grid-template-columns:1fr}}@media(max-width:760px){.workspace{grid-template-columns:1fr}.side-column{grid-row:1}.programmer{padding:16px}.target-fields{grid-template-columns:1fr}.address-row{align-items:stretch;flex-direction:column}.address-row label{width:100%}}
 </style>
