@@ -46,9 +46,13 @@ fn inspect_stm32f407zg(session: &mut Session) -> Result<ValidatedIdentity, Nativ
     let idcode = core
         .read_word_32(0xE004_2000)
         .map_err(|error| NativeError::io(format!("Read DBGMCU ID failed: {error}")))?;
-    let flash_kib = core
-        .read_word_16(0x1FFF_7A22)
+    // RM0090 locates the 16-bit F_ID at 0x1FFF7A22. Read its containing
+    // aligned word: some CMSIS-DAP transports return the lower halfword for
+    // a halfword access at +2, which produces a bogus capacity (e.g. 4610 KiB).
+    let size_word = core
+        .read_word_32(0x1FFF_7A20)
         .map_err(|error| NativeError::io(format!("Read Flash size failed: {error}")))?;
+    let flash_kib = flash_size_from_aligned_word(size_word);
     Ok(ValidatedIdentity {
         report: TargetIdentityResult {
             device_id: format!("0x{:03X}", idcode & 0x0FFF),
@@ -60,4 +64,19 @@ fn inspect_stm32f407zg(session: &mut Session) -> Result<ValidatedIdentity, Nativ
         flash_range: 0x0800_0000..0x0810_0000,
         erase_sectors: stm32f407zg_erase_sectors(),
     })
+}
+
+fn flash_size_from_aligned_word(word: u32) -> u16 {
+    (word >> 16) as u16
+}
+
+#[cfg(test)]
+mod tests {
+    use super::flash_size_from_aligned_word;
+
+    #[test]
+    fn flash_size_uses_upper_halfword_at_offset_two() {
+        assert_eq!(flash_size_from_aligned_word(0x0400_1202), 1024);
+        assert_eq!(flash_size_from_aligned_word(0x0200_1202), 512);
+    }
 }
