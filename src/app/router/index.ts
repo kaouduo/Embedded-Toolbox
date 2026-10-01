@@ -90,6 +90,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import("@/modules/device/views/FirmwareProgrammerView.vue"),
     meta: { titleKey: "tools.firmwareProgrammer" },
   },
+  {
+    path: "/device/packs",
+    name: "pack-manager",
+    component: () => import("@/modules/device/views/PackManagerView.vue"),
+    meta: { titleKey: "tools.packManager" },
+  },
   { path: "/device/manager", redirect: "/device/programmer" },
   {
     path: "/:pathMatch(.*)*",

@@ -28,6 +28,7 @@ export const messages = {
       imageConverter: "Image Converter",
       colorPalette: "Color Palette",
       firmwareProgrammer: "Firmware Programmer",
+      packManager: "Pack Manager",
     },
     descriptions: {
       modbus:
@@ -43,6 +44,26 @@ export const messages = {
       colorPalette: "Create, save, import, and export color palettes for UI design.",
       firmwareProgrammer:
         "Prepare firmware programming with CMSIS-Pack targets and ST-Link or CMSIS-DAP.",
+    },
+    packManager: {
+      description: "Import CMSIS-Packs and validate their MCU target definitions.",
+      openProgrammer: "Open firmware programmer",
+      validated: "{ready} / {total} definitions valid",
+      needsValidation: "Validation needed",
+    },
+    programmer: {
+      description: "Choose a target, review the Flash plan, then program and verify.",
+      targetTitle: "Target MCU", targetHint: "Choose a validated device from an imported Pack.",
+      noPack: "No Pack is available.", packLabel: "Pack", mcuLabel: "MCU", selectMcu: "Search MCU model",
+      packNeedsValidation: "This Pack needs target validation.",
+      firmwareTitle: "Firmware", firmwareHint: "Select a BIN and confirm its linked Flash address.",
+      addressLabel: "Start address", addressHint: "Use the address from your firmware build; the Pack address is only a suggestion.",
+      writeRange: "Write range", eraseRange: "Erase range", firmwareSize: "Size", sectors: "Sectors", planDetails: "Algorithm and hash",
+      probeTitle: "Probe", probeHint: "Connect ST-Link or CMSIS-DAP; chip identity is read automatically.",
+      selectProbe: "Select probe", speedLabel: "SWD speed (kHz)", connected: "Connected",
+      identityUnavailable: "Chip identity could not be read.", identityMatch: "Flash matches", identityMismatch: "Chip mismatch",
+      programTitle: "Program and verify", programHint: "Check the physical marking before writing Flash.",
+      advanced: "Advanced probe diagnostics", statusTitle: "Current status",
     },
     targetCatalog: {
       description: "Import a Pack, select the exact MCU, choose firmware and a probe, then review the programming plan.",
@@ -466,6 +487,7 @@ export const messages = {
       imageConverter: "图像转换",
       colorPalette: "色卡管理",
       firmwareProgrammer: "固件烧录",
+      packManager: "Pack 管理",
     },
     descriptions: {
       modbus: "用于帧构建、寄存器轮询和通信流量分析的 Modbus RTU / TCP 调试工具。",
@@ -477,6 +499,26 @@ export const messages = {
       imageConverter: "将图像转换为适用于 MCU 显示屏的 RGB565、RGB888 或单色位图 C 数组。",
       colorPalette: "创建、保存、导入和导出用于 UI 设计的色卡。",
       firmwareProgrammer: "使用 CMSIS-Pack 目标与 ST-Link、CMSIS-DAP 准备固件烧录。",
+    },
+    packManager: {
+      description: "导入 CMSIS-Pack，验证其中的 MCU 目标定义。",
+      openProgrammer: "前往固件烧录",
+      validated: "{ready} / {total} 个定义有效",
+      needsValidation: "待验证",
+    },
+    programmer: {
+      description: "选择目标、核对 Flash 计划，然后烧录并校验。",
+      targetTitle: "目标芯片", targetHint: "从已导入的 Pack 中选择通过校验的器件。",
+      noPack: "还没有可用的 Pack。", packLabel: "Pack", mcuLabel: "MCU 型号", selectMcu: "搜索 MCU 型号",
+      packNeedsValidation: "此 Pack 尚未完成目标定义校验。",
+      firmwareTitle: "固件文件", firmwareHint: "选择 BIN，并确认固件链接的 Flash 起始地址。",
+      addressLabel: "起始地址", addressHint: "以固件构建时的链接地址为准；Pack 地址仅供参考。",
+      writeRange: "写入范围", eraseRange: "擦除范围", firmwareSize: "大小", sectors: "扇区数", planDetails: "算法与哈希",
+      probeTitle: "连接探针", probeHint: "连接 ST-Link 或 CMSIS-DAP 后自动读取芯片身份。",
+      selectProbe: "选择探针", speedLabel: "SWD 速度 (kHz)", connected: "已连接",
+      identityUnavailable: "无法读取芯片身份。", identityMatch: "Flash 匹配", identityMismatch: "芯片不匹配",
+      programTitle: "烧录并校验", programHint: "写入前核对实物芯片丝印。",
+      advanced: "高级探针诊断", statusTitle: "当前状态",
     },
     targetCatalog: {
       description: "导入 Pack、选择准确的 MCU 和固件、连接探针，并核对烧录计划。",

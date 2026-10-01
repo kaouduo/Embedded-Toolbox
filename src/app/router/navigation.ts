@@ -83,6 +83,7 @@ export const navigation: NavItem[] = [
     icon: "device",
     children: [
       { key: "firmware-programmer", labelKey: "tools.firmwareProgrammer", routeName: "firmware-programmer" },
+      { key: "pack-manager", labelKey: "tools.packManager", routeName: "pack-manager" },
     ],
   },
 ];
