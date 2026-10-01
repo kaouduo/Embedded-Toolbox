@@ -26,4 +26,7 @@ export const TargetCatalogService = {
   async analyze(pack: PackRecord): Promise<PackAnalysis> {
     return invokeNative<PackAnalysis>("analyze_target_pack", { packId: pack.id, sha256: pack.sha256 });
   },
+  async remove(pack: PackRecord): Promise<void> {
+    return invokeNative<void>("remove_target_pack", { packId: pack.id, sha256: pack.sha256 });
+  },
 };

@@ -22,6 +22,7 @@ use crate::domain::probe::{
 };
 use crate::services::flash_plan_service;
 use crate::services::target_catalog_service;
+use crate::services::target_catalog_service::remove_pack;
 use crate::services::target_identity_service;
 
 /// Upper bound for one-shot RAM diagnostics reads, to avoid stalling the UI.
@@ -214,6 +215,7 @@ impl ProbeSessionManager {
         device: &str,
         speed_khz: u32,
     ) -> Result<ProbeSessionInfo, NativeError> {
+        let mut sessions = self.lock_sessions()?;
         let (session, voltage) =
             attach_validated(root, selection, pack_id, sha256, device, speed_khz)?;
         let session_id = format!("probe-{}", self.next_id.fetch_add(1, Ordering::Relaxed));
@@ -228,8 +230,26 @@ impl ProbeSessionManager {
             core_halted: false,
         };
         let info = handle.info(&session_id);
-        self.lock_sessions()?.insert(session_id, handle);
+        sessions.insert(session_id, handle);
         Ok(info)
+    }
+
+    /// Serializes deletion with attach and all live session operations.
+    pub fn remove_imported_pack(
+        &self,
+        root: &Path,
+        pack_id: &str,
+        sha256: &str,
+    ) -> Result<(), NativeError> {
+        let sessions = self.lock_sessions()?;
+        if sessions.values().any(|handle| {
+            handle.pack_id == pack_id && handle.pack_sha256.eq_ignore_ascii_case(sha256)
+        }) {
+            return Err(NativeError::conflict(
+                "Disconnect the probe session using this Pack before removing it",
+            ));
+        }
+        remove_pack(root, pack_id, sha256)
     }
 
     /// Returns the current snapshot without disturbing the target.

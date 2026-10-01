@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { NButton, NInput, NTag, useMessage } from "naive-ui";
+import { NButton, NInput, NPopconfirm, NTag, useMessage } from "naive-ui";
 import { useI18n } from "vue-i18n";
 import { RouterLink } from "vue-router";
 import { TargetCatalogService, type PackAnalysis, type PackRecord } from "@/services/native/target-catalog-service";
@@ -46,6 +46,19 @@ async function analyzeSelected() {
   catch (error) { message.error(String(error)); }
   finally { busy.value = false; }
 }
+async function removeSelected() {
+  if (!selected.value || busy.value) return;
+  const pack = selected.value;
+  busy.value = true;
+  try {
+    await TargetCatalogService.remove(pack);
+    selectedId.value = "";
+    query.value = "";
+    await refresh();
+    message.success(t("packManager.removed"));
+  } catch (error) { message.error(String(error)); }
+  finally { busy.value = false; }
+}
 onMounted(refresh);
 </script>
 
@@ -64,7 +77,7 @@ onMounted(refresh);
         </button>
       </aside>
       <main v-if="selected" class="panel detail">
-        <div class="detail-heading"><div><h2>{{ selected.vendor }} {{ selected.name }}</h2><p>v{{ selected.version }} · {{ selected.devices.length }} {{ t("targetCatalog.devices") }}</p></div><RouterLink to="/device/programmer">{{ t("packManager.openProgrammer") }} →</RouterLink></div>
+        <div class="detail-heading"><div><h2>{{ selected.vendor }} {{ selected.name }}</h2><p>v{{ selected.version }} · {{ selected.devices.length }} {{ t("targetCatalog.devices") }}</p></div><div class="heading-actions"><RouterLink to="/device/programmer">{{ t("packManager.openProgrammer") }} →</RouterLink><NPopconfirm :positive-text="t('packManager.confirmRemove')" :negative-text="t('packManager.cancelRemove')" @positive-click="removeSelected"><template #trigger><NButton type="error" secondary size="small" :disabled="busy">{{ t("packManager.remove") }}</NButton></template>{{ t("packManager.removeWarning", { name: `${selected.vendor} ${selected.name} v${selected.version}` }) }}</NPopconfirm></div></div>
         <p class="hash">SHA-256: {{ selected.sha256 }}</p>
         <div class="summary"><NTag :type="analysis ? 'success' : 'warning'">{{ analysis ? t("packManager.validated", { ready: analysis.targets.filter((target) => target.ready).length, total: analysis.targets.length }) : t("packManager.needsValidation") }}</NTag><NButton size="small" :loading="busy" @click="analyzeSelected">{{ t("targetCatalog.analyze") }}</NButton></div>
         <NInput v-model:value="query" :placeholder="t('targetCatalog.search')" clearable />
@@ -75,5 +88,5 @@ onMounted(refresh);
 </template>
 
 <style scoped>
-.pack-manager{padding:28px;max-width:1320px;margin:auto}.page-header,.detail-heading,.summary{display:flex;justify-content:space-between;align-items:center;gap:16px}.page-header{margin-bottom:24px}.page-header h1,.detail h2{margin:0}.page-header p,.detail-heading p{margin:5px 0 0;opacity:.7}.columns{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px}.panel{border:1px solid #8884;border-radius:12px;padding:20px;min-width:0}.panel h2{margin-top:0}.pack-item{display:flex;flex-direction:column;width:100%;padding:13px;margin:8px 0;text-align:left;color:inherit;background:transparent;border:1px solid #8885;border-radius:8px;cursor:pointer}.pack-item.active{border-color:#18a058;background:#18a05814}.pack-item small,.device-row small{opacity:.65;margin-top:4px}.hash{font-size:12px;opacity:.6;overflow-wrap:anywhere}.summary{justify-content:flex-start;margin:18px 0}.device-list{margin-top:12px}.device-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid #8883}.device-row>div{display:flex;flex-direction:column}@media(max-width:760px){.columns{grid-template-columns:1fr}.page-header{align-items:flex-start}}
+.pack-manager{padding:28px;max-width:1320px;margin:auto}.page-header,.detail-heading,.summary{display:flex;justify-content:space-between;align-items:center;gap:16px}.page-header{margin-bottom:24px}.page-header h1,.detail h2{margin:0}.page-header p,.detail-heading p{margin:5px 0 0;opacity:.7}.heading-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.columns{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px}.panel{border:1px solid #8884;border-radius:12px;padding:20px;min-width:0}.panel h2{margin-top:0}.pack-item{display:flex;flex-direction:column;width:100%;padding:13px;margin:8px 0;text-align:left;color:inherit;background:transparent;border:1px solid #8885;border-radius:8px;cursor:pointer}.pack-item.active{border-color:#18a058;background:#18a05814}.pack-item small,.device-row small{opacity:.65;margin-top:4px}.hash{font-size:12px;opacity:.6;overflow-wrap:anywhere}.summary{justify-content:flex-start;margin:18px 0}.device-list{margin-top:12px}.device-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid #8883}.device-row>div{display:flex;flex-direction:column}@media(max-width:760px){.columns{grid-template-columns:1fr}.page-header{align-items:flex-start}.detail-heading{align-items:flex-start;flex-direction:column}}
 </style>

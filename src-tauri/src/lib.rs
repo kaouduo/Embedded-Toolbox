@@ -32,6 +32,7 @@ pub fn run() {
             commands::connection::close_connection,
             commands::target_catalog::list_target_packs,
             commands::target_catalog::import_target_pack,
+            commands::target_catalog::remove_target_pack,
             commands::target_catalog::list_target_analyses,
             commands::target_catalog::analyze_target_pack,
             commands::probe::list_supported_probes,

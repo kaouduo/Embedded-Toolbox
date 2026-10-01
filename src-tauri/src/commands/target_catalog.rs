@@ -1,9 +1,11 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
 
 use crate::domain::error::NativeError;
 use crate::domain::target_catalog::{PackAnalysis, PackRecord};
+use crate::services::probe_service::ProbeSessionManager;
 use crate::services::target_catalog_service;
 
 fn catalog_dir(app: &AppHandle) -> Result<PathBuf, NativeError> {
@@ -29,6 +31,22 @@ pub async fn import_target_pack(app: AppHandle, path: String) -> Result<PackReco
     })
     .await
     .map_err(|_| NativeError::internal("target pack import task failed"))?
+}
+
+#[tauri::command]
+pub async fn remove_target_pack(
+    app: AppHandle,
+    state: State<'_, Arc<ProbeSessionManager>>,
+    pack_id: String,
+    sha256: String,
+) -> Result<(), NativeError> {
+    let root = catalog_dir(&app)?;
+    let manager = Arc::clone(state.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        manager.remove_imported_pack(&root, &pack_id, &sha256)
+    })
+    .await
+    .map_err(|_| NativeError::internal("target pack removal task failed"))?
 }
 
 #[tauri::command]

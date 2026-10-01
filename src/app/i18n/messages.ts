@@ -50,6 +50,9 @@ export const messages = {
       openProgrammer: "Open firmware programmer",
       validated: "{ready} / {total} definitions valid",
       needsValidation: "Validation needed",
+      remove: "Remove Pack", confirmRemove: "Remove", cancelRemove: "Cancel",
+      removeWarning: "Remove {name} from this app? Its imported copy and validation cache will be deleted. The original Pack file is kept.",
+      removed: "Pack removed",
     },
     programmer: {
       description: "Choose a target, review the Flash plan, then program and verify.",
@@ -505,6 +508,9 @@ export const messages = {
       openProgrammer: "前往固件烧录",
       validated: "{ready} / {total} 个定义有效",
       needsValidation: "待验证",
+      remove: "删除 Pack", confirmRemove: "确认删除", cancelRemove: "取消",
+      removeWarning: "从应用中删除 {name}？将清除导入副本和校验缓存，原始 Pack 文件不受影响。",
+      removed: "Pack 已删除",
     },
     programmer: {
       description: "选择目标、核对 Flash 计划，然后烧录并校验。",

@@ -39,6 +39,46 @@ pub fn list_packs(root: &Path) -> Result<Vec<PackRecord>, NativeError> {
     Ok(packs)
 }
 
+/// Removes only the application's imported copy and generated conversion data.
+/// The user's original Pack file is never touched.
+pub fn remove_pack(root: &Path, pack_id: &str, sha256: &str) -> Result<(), NativeError> {
+    if pack_id.is_empty()
+        || sha256.len() != 64
+        || !sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(NativeError::invalid_argument("Invalid Pack identity"));
+    }
+    let dir = root.join(format!("{}-{}", safe_component(pack_id), &sha256[..12]));
+    let metadata = fs::symlink_metadata(&dir).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            NativeError::not_found("Pack is not imported")
+        } else {
+            error.into()
+        }
+    })?;
+    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+        return Err(NativeError::invalid_argument(
+            "Pack storage is not a regular directory",
+        ));
+    }
+    let root_real = fs::canonicalize(root)?;
+    let dir_real = fs::canonicalize(&dir)?;
+    if dir_real.parent() != Some(root_real.as_path()) {
+        return Err(NativeError::invalid_argument(
+            "Pack storage is outside the catalog",
+        ));
+    }
+    let record: PackRecord = serde_json::from_slice(&fs::read(dir.join("manifest.json"))?)
+        .map_err(|error| NativeError::io(format!("Invalid Pack manifest: {error}")))?;
+    if record.id != pack_id || !record.sha256.eq_ignore_ascii_case(sha256) {
+        return Err(NativeError::conflict(
+            "Pack identity does not match storage",
+        ));
+    }
+    fs::remove_dir_all(&dir)?;
+    Ok(())
+}
+
 pub fn list_analyses(root: &Path) -> Result<Vec<PackAnalysis>, NativeError> {
     if !root.exists() {
         return Ok(Vec::new());
@@ -568,7 +608,15 @@ mod tests {
         let first = import_pack(&root, &source).unwrap();
         let again = import_pack(&root, &source).unwrap();
         assert_eq!(first, again);
-        assert_eq!(list_packs(&root).unwrap(), vec![first]);
+        assert_eq!(list_packs(&root).unwrap(), vec![first.clone()]);
+        assert!(remove_pack(&root, &first.id, &"0".repeat(64)).is_err());
+        assert_eq!(list_packs(&root).unwrap(), vec![first.clone()]);
+        remove_pack(&root, &first.id, &first.sha256).unwrap();
+        assert!(list_packs(&root).unwrap().is_empty());
+        assert!(source.exists());
+        let reimported = import_pack(&root, &source).unwrap();
+        assert_eq!(reimported.id, first.id);
+        assert_eq!(reimported.sha256, first.sha256);
         fs::remove_dir_all(temp).unwrap();
     }
 
