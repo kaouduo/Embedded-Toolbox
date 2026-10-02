@@ -322,7 +322,10 @@ impl ProbeSessionManager {
         }
         let mut options = DownloadOptions::default();
         options.verify = true;
-        options.keep_unwritten_bytes = true;
+        // The preview lists every affected erase sector. Avoid reading the old
+        // sector contents through SWD before programming: some targets cannot
+        // complete probe-rs's Fill phase even though erase/program is supported.
+        options.keep_unwritten_bytes = false;
         options.do_chip_erase = false;
         options.preferred_algos = vec![plan.flash_algorithm.clone()];
         let last_stage = std::sync::Arc::new(std::sync::Mutex::new(
