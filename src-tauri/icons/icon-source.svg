@@ -1,0 +1,155 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none"
+     xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="baseGrad" x1="240" y1="180" x2="820" y2="860" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.62" stop-color="#F7F9FC"/>
+      <stop offset="1" stop-color="#E8EDF6"/>
+    </linearGradient>
+
+    <linearGradient id="sideGrad" x1="360" y1="210" x2="850" y2="820" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F4F7FC"/>
+      <stop offset="1" stop-color="#D7DEEC"/>
+    </linearGradient>
+
+    <linearGradient id="grooveGrad" x1="360" y1="300" x2="690" y2="760" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A7B4CA"/>
+      <stop offset="0.45" stop-color="#6F82A0"/>
+      <stop offset="1" stop-color="#CBD3E1"/>
+    </linearGradient>
+
+    <linearGradient id="tGrad" x1="390" y1="290" x2="650" y2="770" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#66F2FF"/>
+      <stop offset="0.34" stop-color="#23B9FF"/>
+      <stop offset="0.68" stop-color="#167AF7"/>
+      <stop offset="1" stop-color="#1458E8"/>
+    </linearGradient>
+
+    <linearGradient id="tEdgeGrad" x1="430" y1="300" x2="700" y2="760" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2FC6FF"/>
+      <stop offset="1" stop-color="#0A48D7"/>
+    </linearGradient>
+
+    <linearGradient id="shineGrad" x1="390" y1="320" x2="610" y2="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.78"/>
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.13"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#7D8DA6" flood-opacity="0.18"/>
+    </filter>
+
+    <filter id="innerShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feOffset dx="0" dy="10"/>
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="out" result="inverse"/>
+      <feFlood flood-color="#33415C" flood-opacity="0.30" result="color"/>
+      <feComposite in="color" in2="inverse" operator="in" result="shadow"/>
+      <feComposite in="shadow" in2="SourceGraphic" operator="over"/>
+    </filter>
+
+    <filter id="tShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#0E43B4" flood-opacity="0.30"/>
+    </filter>
+  </defs>
+
+  <!-- transparent canvas; uncomment next line for solid white -->
+  <rect width="1024" height="1024" fill="#FFFFFF"/>
+
+  <!-- subtle rear/side body to suggest slight depth -->
+  <rect x="214" y="178" width="618" height="650" rx="120"
+        fill="url(#sideGrad)" opacity="0.95"/>
+
+  <!-- main white shell -->
+  <rect x="190" y="164" width="618" height="650" rx="120"
+        fill="url(#baseGrad)" filter="url(#softShadow)"/>
+
+  <!-- T-shaped recessed groove -->
+  <path d="
+    M 355 288
+    H 650
+    C 699 288 728 318 728 360
+    C 728 404 698 432 654 432
+    H 590
+    V 679
+    C 590 742 553 779 512 779
+    C 468 779 432 742 432 679
+    V 432
+    H 364
+    C 319 432 290 404 290 360
+    C 290 318 320 288 355 288
+    Z"
+    fill="url(#grooveGrad)" opacity="0.96"/>
+
+  <!-- soft inner cutout highlight to imply molded white cavity -->
+  <path d="
+    M 360 300
+    H 646
+    C 684 300 708 324 708 360
+    C 708 397 683 420 648 420
+    H 575
+    V 678
+    C 575 726 548 756 512 756
+    C 476 756 447 726 447 678
+    V 420
+    H 366
+    C 330 420 310 397 310 360
+    C 310 324 332 300 360 300
+    Z"
+    fill="#F9FBFF" filter="url(#innerShadow)"/>
+
+  <!-- T depth / side edge -->
+  <path d="
+    M 373 314
+    H 640
+    C 670 314 690 333 690 361
+    C 690 389 671 407 641 407
+    H 560
+    V 676
+    C 560 715 540 739 511 739
+    C 482 739 460 715 460 676
+    V 407
+    H 378
+    C 349 407 330 389 330 361
+    C 330 333 349 314 373 314
+    Z"
+    fill="url(#tEdgeGrad)" transform="translate(10 10)" opacity="0.9"/>
+
+  <!-- Main T -->
+  <path d="
+    M 373 304
+    H 640
+    C 670 304 690 323 690 351
+    C 690 379 671 397 641 397
+    H 560
+    V 666
+    C 560 705 540 729 511 729
+    C 482 729 460 705 460 666
+    V 397
+    H 378
+    C 349 397 330 379 330 351
+    C 330 323 349 304 373 304
+    Z"
+    fill="url(#tGrad)" filter="url(#tShadow)"/>
+
+  <!-- subtle face gloss -->
+  <path d="
+    M 382 318
+    H 624
+    C 651 318 669 334 669 354
+    C 669 363 666 371 661 377
+    C 604 361 529 356 460 362
+    C 414 366 371 375 343 388
+    C 336 378 333 367 333 354
+    C 333 333 351 318 382 318
+    Z"
+    fill="url(#shineGrad)" opacity="0.72"/>
+
+  <!-- tiny cavity rim highlight -->
+  <path d="
+    M 358 294
+    H 648
+    C 691 294 716 321 716 359"
+    stroke="#FFFFFF" stroke-opacity="0.80" stroke-width="7" stroke-linecap="round"/>
+</svg>

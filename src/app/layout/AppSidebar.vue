@@ -22,9 +22,6 @@ import type { NavItem } from "@/app/router/navigation";
 const route = useRoute();
 const router = useRouter();
 const { t } = useI18n();
-
-const collapsed = ref(false);
-
 const iconMap: Record<string, Component> = {
   home: HomeOutline,
   protocol: LinkOutline,
@@ -81,18 +78,11 @@ function handleSelect(key: string): void {
 
 <template>
   <aside class="app-sidebar">
-    <div class="sidebar-header" @click="collapsed = !collapsed">
-      <img src="/favicon.ico" alt="" class="logo" />
-      <span v-if="!collapsed" class="app-name">Embedded Toolbox</span>
-    </div>
     <n-menu
       :options="menuOptions"
       :value="activeKey"
-      :collapsed="collapsed"
-      :collapsed-width="56"
-      :collapsed-icon-size="20"
       :indent="18"
-      :expanded-keys="collapsed ? undefined : expandedKeys"
+      :expanded-keys="expandedKeys"
       @update:expanded-keys="(keys: string[]) => (expandedKeys = keys)"
       @update:value="handleSelect"
     />
@@ -107,29 +97,6 @@ function handleSelect(key: string): void {
   background-color: var(--et-bg-surface);
   border-right: 1px solid var(--et-border-color);
   overflow: hidden;
-}
-
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: var(--et-toolbar-height);
-  padding: 0 14px;
-  cursor: pointer;
-  user-select: none;
-  border-bottom: 1px solid var(--et-border-color);
-  flex-shrink: 0;
-}
-
-.logo {
-  width: 20px;
-  height: 20px;
-}
-
-.app-name {
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
 }
 
 .app-sidebar :deep(.n-menu) {
