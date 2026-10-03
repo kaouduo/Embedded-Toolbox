@@ -14,6 +14,13 @@ export interface NativeError {
   message: string;
 }
 
+export class NativeInvokeError extends Error {
+  constructor(readonly kind: string, message: string) {
+    super(message);
+    this.name = "NativeInvokeError";
+  }
+}
+
 function isNativeError(value: unknown): value is NativeError {
   return (
     typeof value === "object" &&
@@ -33,7 +40,7 @@ export async function invokeNative<T>(command: string, args?: Record<string, unk
     return await invoke<T>(command, args);
   } catch (error: unknown) {
     if (isNativeError(error)) {
-      throw new Error(error.message);
+      throw new NativeInvokeError(error.kind, error.message);
     }
     if (error instanceof Error) {
       throw error;

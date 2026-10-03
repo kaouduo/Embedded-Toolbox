@@ -193,6 +193,19 @@ Get-CimInstance Win32_Process -Filter 'ProcessId = <PID>' | Select-Object Comman
 
 打开 Visual Studio Installer，确认已安装 Desktop development with C++、MSVC 和 Windows SDK，然后重新打开终端。
 
+### Rust 报 `E0786`，同时显示“页面文件太小”（os error 1455）
+
+这是 Windows 提交内存不足，导致 Rust 无法映射依赖库；不能仅凭 `invalid metadata` 判断缓存已损坏。项目开发构建已关闭依赖调试信息与增量编译，以减少内存占用；项目自身保留行号信息，但依赖内的变量调试信息不可用。
+
+先停止当前开发命令，关闭不需要的应用，再重试。若仍失败，在 Windows 的“高级系统设置 → 性能 → 设置 → 高级 → 虚拟内存”启用自动管理所有驱动器的分页文件大小，确保磁盘有足够空闲空间，并按系统提示重启。不要首先删除整个 `target` 目录；全量重编译也需要内存。
+
+资源紧张时，可在同一个 PowerShell 终端限制编译并行度：
+
+```powershell
+$env:CARGO_BUILD_JOBS = '1'
+vp run tauri dev
+```
+
 ### Vite+ Windows 原生绑定错误
 
 先升级或强制重装 Vite+，不要回退为普通 Vite：

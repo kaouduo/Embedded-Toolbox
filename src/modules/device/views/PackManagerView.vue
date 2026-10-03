@@ -14,6 +14,8 @@ const query = ref("");
 const busy = ref(false);
 const selected = computed(() => packs.value.find((pack) => pack.id === selectedId.value));
 const analysis = computed(() => analyses.value.find((item) => item.packId === selected.value?.id && item.sha256 === selected.value?.sha256));
+const targetByName = computed(() => new Map(analysis.value?.targets.map((target) => [target.name, target]) ?? []));
+const readyTargetCount = computed(() => analysis.value?.targets.filter((target) => target.ready).length ?? 0);
 const devices = computed(() => selected.value?.devices.filter((device) => `${device.name} ${device.family}`.toLowerCase().includes(query.value.toLowerCase())) ?? []);
 async function refresh() {
   try {
@@ -79,9 +81,9 @@ onMounted(refresh);
       <main v-if="selected" class="panel detail">
         <div class="detail-heading"><div><h2>{{ selected.vendor }} {{ selected.name }}</h2><p>v{{ selected.version }} · {{ selected.devices.length }} {{ t("targetCatalog.devices") }}</p></div><div class="heading-actions"><RouterLink to="/device/programmer">{{ t("packManager.openProgrammer") }} →</RouterLink><NPopconfirm :positive-text="t('packManager.confirmRemove')" :negative-text="t('packManager.cancelRemove')" @positive-click="removeSelected"><template #trigger><NButton type="error" secondary size="small" :disabled="busy">{{ t("packManager.remove") }}</NButton></template>{{ t("packManager.removeWarning", { name: `${selected.vendor} ${selected.name} v${selected.version}` }) }}</NPopconfirm></div></div>
         <p class="hash">SHA-256: {{ selected.sha256 }}</p>
-        <div class="summary"><NTag :type="analysis ? 'success' : 'warning'">{{ analysis ? t("packManager.validated", { ready: analysis.targets.filter((target) => target.ready).length, total: analysis.targets.length }) : t("packManager.needsValidation") }}</NTag><NButton size="small" :loading="busy" @click="analyzeSelected">{{ t("targetCatalog.analyze") }}</NButton></div>
+        <div class="summary"><NTag :type="analysis ? 'success' : 'warning'">{{ analysis ? t("packManager.validated", { ready: readyTargetCount, total: analysis.targets.length }) : t("packManager.needsValidation") }}</NTag><NButton size="small" :loading="busy" @click="analyzeSelected">{{ t("targetCatalog.analyze") }}</NButton></div>
         <NInput v-model:value="query" :placeholder="t('targetCatalog.search')" clearable />
-        <div class="device-list"><div v-for="device in devices" :key="device.name" class="device-row"><div><strong>{{ device.name }}</strong><small>{{ device.family }} · {{ device.core || t("targetCatalog.coreUnknown") }}</small></div><NTag size="small" :type="!analysis ? 'default' : analysis.targets.find((target) => target.name === device.name)?.ready ? 'success' : 'warning'">{{ !analysis ? t("packManager.needsValidation") : analysis.targets.find((target) => target.name === device.name)?.ready ? t("targetCatalog.ready") : t("targetCatalog.invalid") }}</NTag></div></div>
+        <div class="device-list"><div v-for="device in devices" :key="device.name" class="device-row"><div><strong>{{ device.name }}</strong><small>{{ device.family }} · {{ device.core || t("targetCatalog.coreUnknown") }}</small></div><NTag size="small" :type="!analysis ? 'default' : targetByName.get(device.name)?.ready ? 'success' : 'warning'">{{ !analysis ? t("packManager.needsValidation") : targetByName.get(device.name)?.ready ? t("targetCatalog.ready") : t("targetCatalog.invalid") }}</NTag></div></div>
       </main>
     </div>
   </div>

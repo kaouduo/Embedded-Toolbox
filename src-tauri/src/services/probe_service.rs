@@ -156,6 +156,7 @@ pub fn test_target_connection(
 /// A live debug session plus the metadata reported to the frontend.
 struct SessionHandle {
     session: Session,
+    probe_selection: ProbeSelection,
     pack_id: String,
     pack_sha256: String,
     probe_kind: String,
@@ -228,6 +229,7 @@ impl ProbeSessionManager {
         let session_id = format!("probe-{}", self.next_id.fetch_add(1, Ordering::Relaxed));
         let handle = SessionHandle {
             session,
+            probe_selection: selection.clone(),
             pack_id: pack_id.to_owned(),
             pack_sha256: sha256.to_owned(),
             probe_kind: selection.kind.clone(),
@@ -259,13 +261,30 @@ impl ProbeSessionManager {
         remove_pack(root, pack_id, sha256)
     }
 
-    /// Returns the current snapshot without disturbing the target.
+    /// Returns the current snapshot, dropping a stale session if its USB probe
+    /// has disappeared. Enumeration does not access the MCU over SWD.
     pub fn status(&self, session_id: &str) -> Result<ProbeSessionInfo, NativeError> {
-        let sessions = self.lock_sessions()?;
+        let mut sessions = self.lock_sessions()?;
         let handle = sessions
             .get(session_id)
             .ok_or_else(|| NativeError::not_found("Probe session is not open"))?;
-        Ok(handle.info(session_id))
+        let info = handle.info(session_id);
+        let selection = &handle.probe_selection;
+        let listed = match selection.kind.as_str() {
+            "ST-Link" => StLinkFactory.list_probes(),
+            "CMSIS-DAP" => CmsisDapFactory.list_probes(),
+            _ => Vec::new(),
+        };
+        if !listed.iter().any(|item| {
+            item.info.vendor_id == selection.vendor_id
+                && item.info.product_id == selection.product_id
+                && item.info.serial_number == selection.serial_number
+                && item.info.interface == selection.interface
+        }) {
+            sessions.remove(session_id);
+            return Err(NativeError::not_found("Probe disconnected"));
+        }
+        Ok(info)
     }
 
     /// Sector erase, program and read-back verification using the selected

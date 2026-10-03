@@ -5,6 +5,7 @@ import { useI18n } from "vue-i18n";
 import { TargetCatalogService, type PackAnalysis, type PackRecord } from "@/services/native/target-catalog-service";
 import { attachProbeSession, disconnectProbeSession, haltProbeSession, listSupportedProbes, probeSessionStatus, readProbeRam, resumeProbeSession, type ProbeRecord, type ProbeSessionInfo, type RamReadResult } from "@/services/native/probe-service";
 import { eraseInternalFlash, pickBinaryFirmware, planBinaryFlash, programBinary, type BinaryFlashPlan, type BinaryProgramResult } from "@/services/native/flash-plan-service";
+import { NativeInvokeError } from "@/services/native/native-service";
 
 const { t } = useI18n();
 const message = useMessage();
@@ -14,9 +15,11 @@ const probes = ref<ProbeRecord[]>([]);
 const probeKind = ref<"ST-Link" | "CMSIS-DAP">("ST-Link");
 const selectedProbeIndex = ref<number | null>(null);
 const selectedProbe = computed(() => selectedProbeIndex.value === null ? undefined : probes.value[selectedProbeIndex.value]?.kind === probeKind.value ? probes.value[selectedProbeIndex.value] : undefined);
-const speedKhz = ref(1800);
+const speedKhz = ref(8000);
 const session = ref<ProbeSessionInfo | null>(null);
 let unmounted = false;
+let sessionMonitor: ReturnType<typeof setInterval> | undefined;
+let monitoringSession = false;
 const ramRead = ref<RamReadResult | null>(null);
 const ramAddress = ref("0x20000000");
 const ramLength = ref(64);
@@ -35,9 +38,10 @@ const programResult = ref<BinaryProgramResult | null>(null);
 const selected = computed(() => packs.value.find((pack) => pack.id === selectedId.value));
 const analysis = computed(() => analyses.value.find((item) => item.packId === selected.value?.id && item.sha256 === selected.value?.sha256));
 const selectedDevice = computed(() => selected.value?.devices.find((device) => device.name === selectedDeviceName.value));
-const selectedDeviceAnalysis = computed(() => analysis.value?.targets.find((target) => target.name === selectedDeviceName.value));
+const targetByName = computed(() => new Map(analysis.value?.targets.map((target) => [target.name, target]) ?? []));
+const selectedDeviceAnalysis = computed(() => targetByName.value.get(selectedDeviceName.value));
 const packOptions = computed(() => packs.value.map((pack) => ({ label: `${pack.vendor} ${pack.name} · v${pack.version}`, value: pack.id })));
-const deviceOptions = computed(() => selected.value?.devices.filter((device) => analysis.value?.targets.some((target) => target.name === device.name && target.ready)).map((device) => ({ label: device.name, value: device.name })) ?? []);
+const deviceOptions = computed(() => selected.value?.devices.filter((device) => targetByName.value.get(device.name)?.ready).map((device) => ({ label: device.name, value: device.name })) ?? []);
 const probeOptions = computed(() => probes.value.flatMap((probe, index) => probe.kind === probeKind.value ? [{ label: `${probe.name}${probe.serialNumber ? ` · ${probe.serialNumber}` : ""}${probe.accessible ? "" : ` · ${t("targetCatalog.notAccessible")}`}`, value: index, disabled: !probe.accessible }] : []));
 watch([selectedId, selectedDeviceName, firmwarePath, startAddress, selectedDeviceAnalysis], () => {
   const generation = ++planGeneration;
@@ -82,6 +86,49 @@ async function refreshProbes() {
   }
   catch (error) { message.error(error instanceof Error ? error.message : String(error)); }
 }
+function clearLostSession(sessionId: string) {
+  if (unmounted || session.value?.sessionId !== sessionId) return;
+  session.value = null;
+  ramRead.value = null;
+  programResult.value = null;
+  message.warning(t("programmer.probeDisconnected"));
+  void refreshProbes();
+}
+function isCurrentSession(sessionId: string) {
+  return !unmounted && session.value?.sessionId === sessionId;
+}
+async function refreshSessionStatus(sessionId: string) {
+  if (!isCurrentSession(sessionId)) return;
+  try {
+    const status = await probeSessionStatus(sessionId);
+    if (isCurrentSession(sessionId)) session.value = status;
+  } catch (error) {
+    if (error instanceof NativeInvokeError && error.kind === "notFound") clearLostSession(sessionId);
+    else throw error;
+  }
+}
+async function recoverSession(sessionId: string, error: unknown) {
+  if (!isCurrentSession(sessionId)) return;
+  if (error instanceof NativeInvokeError && error.kind === "notFound") {
+    clearLostSession(sessionId);
+    return;
+  }
+  message.error(error instanceof Error ? error.message : String(error));
+  try { await refreshSessionStatus(sessionId); } catch { /* retain the operation error */ }
+}
+async function monitorProbeSession() {
+  if (unmounted || busy.value || monitoringSession || !session.value) return;
+  const sessionId = session.value.sessionId;
+  monitoringSession = true;
+  try {
+    const status = await probeSessionStatus(sessionId);
+    if (!unmounted && !busy.value && session.value?.sessionId === sessionId) session.value = status;
+  } catch (error) {
+    if (!busy.value && error instanceof NativeInvokeError && error.kind === "notFound") clearLostSession(sessionId);
+  } finally {
+    monitoringSession = false;
+  }
+}
 async function attachSession() {
   if (session.value || busy.value || !selected.value || !selectedDevice.value || !selectedProbe.value || speedKhz.value === null) return;
   busy.value = true;
@@ -104,29 +151,40 @@ async function attachSession() {
   finally { busy.value = false; }
 }
 async function disconnectSession() {
-  if (!session.value) return;
+  if (!session.value || busy.value) return;
+  const sessionId = session.value.sessionId;
   busy.value = true;
   try {
-    await disconnectProbeSession(session.value.sessionId);
+    await disconnectProbeSession(sessionId);
+    if (!isCurrentSession(sessionId)) return;
     session.value = null;
     ramRead.value = null;
+    programResult.value = null;
   } catch (error) {
-    message.error(error instanceof Error ? error.message : String(error));
+    await recoverSession(sessionId, error);
   }
   finally { busy.value = false; }
 }
 async function haltSession() {
-  if (!session.value) return;
+  if (!session.value || busy.value) return;
+  const sessionId = session.value.sessionId;
   busy.value = true;
-  try { session.value = await haltProbeSession(session.value.sessionId); }
-  catch (error) { message.error(error instanceof Error ? error.message : String(error)); }
+  try {
+    const status = await haltProbeSession(sessionId);
+    if (isCurrentSession(sessionId)) session.value = status;
+  }
+  catch (error) { await recoverSession(sessionId, error); }
   finally { busy.value = false; }
 }
 async function resumeSession() {
-  if (!session.value) return;
+  if (!session.value || busy.value) return;
+  const sessionId = session.value.sessionId;
   busy.value = true;
-  try { session.value = await resumeProbeSession(session.value.sessionId); }
-  catch (error) { message.error(error instanceof Error ? error.message : String(error)); }
+  try {
+    const status = await resumeProbeSession(sessionId);
+    if (isCurrentSession(sessionId)) session.value = status;
+  }
+  catch (error) { await recoverSession(sessionId, error); }
   finally { busy.value = false; }
 }
 function parseAddress(text: string): number | null {
@@ -136,7 +194,8 @@ function parseAddress(text: string): number | null {
   return Number.isInteger(value) && value >= 0 ? value : null;
 }
 async function readRam() {
-  if (!session.value) return;
+  if (!session.value || busy.value) return;
+  const sessionId = session.value.sessionId;
   const address = parseAddress(ramAddress.value);
   if (address === null || ramLength.value === null || ramLength.value < 1) {
     message.error(t("targetCatalog.invalidRamArgs"));
@@ -144,12 +203,13 @@ async function readRam() {
   }
   busy.value = true;
   try {
-    ramRead.value = await readProbeRam({ sessionId: session.value.sessionId, address, length: ramLength.value });
-    session.value = { ...session.value, coreHalted: ramRead.value.coreHalted };
+    const result = await readProbeRam({ sessionId, address, length: ramLength.value });
+    if (!unmounted && session.value?.sessionId === sessionId) {
+      ramRead.value = result;
+      session.value = { ...session.value, coreHalted: result.coreHalted };
+    }
   } catch (error) {
-    message.error(error instanceof Error ? error.message : String(error));
-    try { session.value = await probeSessionStatus(session.value.sessionId); }
-    catch (statusError) { message.error(statusError instanceof Error ? statusError.message : String(statusError)); }
+    await recoverSession(sessionId, error);
   }
   finally { busy.value = false; }
 }
@@ -158,6 +218,7 @@ function formatRamBytes(result: RamReadResult): string {
 }
 onBeforeUnmount(() => {
   unmounted = true;
+  if (sessionMonitor) clearInterval(sessionMonitor);
   ++planGeneration;
   if (planTimer) clearTimeout(planTimer);
   if (session.value) disconnectProbeSession(session.value.sessionId).catch(() => {});
@@ -170,35 +231,43 @@ async function chooseFirmware() {
 }
 async function executeBinaryPlan() {
   if (!session.value || !flashPlan.value || busy.value) return;
+  const sessionId = session.value.sessionId;
   busy.value = true;
   try {
-    programResult.value = await programBinary({
-      sessionId: session.value.sessionId,
+    const result = await programBinary({
+      sessionId,
       firmwarePath: firmwarePath.value,
       startAddress: flashPlan.value.startAddress,
       expectedSha256: flashPlan.value.firmwareSha256,
     });
-    session.value = await probeSessionStatus(session.value.sessionId);
+    if (!isCurrentSession(sessionId)) return;
+    programResult.value = result;
+    await refreshSessionStatus(sessionId);
+    if (!isCurrentSession(sessionId)) return;
     message.success(t("targetCatalog.programVerified"));
   } catch (error) {
-    message.error(error instanceof Error ? error.message : String(error));
-    try { session.value = await probeSessionStatus(session.value.sessionId); } catch { /* retain the error above */ }
+    await recoverSession(sessionId, error);
   } finally { busy.value = false; }
 }
 async function eraseAllFlash() {
   if (!session.value || busy.value) return;
+  const sessionId = session.value.sessionId;
   busy.value = true;
   try {
-    await eraseInternalFlash(session.value.sessionId);
+    await eraseInternalFlash(sessionId);
+    if (!isCurrentSession(sessionId)) return;
     programResult.value = null;
-    session.value = await probeSessionStatus(session.value.sessionId);
+    await refreshSessionStatus(sessionId);
+    if (!isCurrentSession(sessionId)) return;
     message.success(t("programmer.eraseSuccess"));
   } catch (error) {
-    message.error(error instanceof Error ? error.message : String(error));
-    try { session.value = await probeSessionStatus(session.value.sessionId); } catch { /* keep erase error */ }
+    await recoverSession(sessionId, error);
   } finally { busy.value = false; }
 }
-onMounted(refreshProbes);
+onMounted(() => {
+  void refreshProbes();
+  sessionMonitor = setInterval(() => { void monitorProbeSession(); }, 1500);
+});
 </script>
 
 <template>

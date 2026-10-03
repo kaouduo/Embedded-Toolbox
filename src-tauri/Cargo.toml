@@ -34,3 +34,13 @@ tauri = { version = "=2.12.0", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2.8.0"
 tauri-plugin-fs = "2.6.0"
+
+# Large probe-rs dependencies can exhaust Windows commit memory when Rust
+# maps full debug metadata. Keep line tables for our code, omit dependency
+# debug info, and avoid the extra incremental compilation cache.
+[profile.dev]
+debug = "line-tables-only"
+incremental = false
+
+[profile.dev.package."*"]
+debug = false
